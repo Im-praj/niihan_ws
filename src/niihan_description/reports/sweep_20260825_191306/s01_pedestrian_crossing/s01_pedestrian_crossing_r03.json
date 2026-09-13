@@ -1,0 +1,15 @@
+{
+  "scenario_id": "s01_pedestrian_crossing",
+  "run_id": "s01_pedestrian_crossing_r03",
+  "params": {
+    "distance_m": 2.0,
+    "speed_mps": 1.5,
+    "angle_deg": 0
+  },
+  "started_at": "2026-08-25T13:43:06.815513Z",
+  "status": null,
+  "failure_mode": null,
+  "notes": [],
+  "world_file": "reports/sweep_20260825_191306/s01_pedestrian_crossing/s01_pedestrian_crossing_r03.world",
+  "finished_at": "2026-08-25T13:43:06.815549Z"
+}

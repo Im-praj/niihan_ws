@@ -1,0 +1,66 @@
+scenarios:
+  - id: s01_pedestrian_crossing
+    description: "Pedestrian crosses patrol route at varying distance/speed/angle"
+    requires: []
+    axes:
+      distance_m: [2.0, 5.0]
+      speed_mps: [0.5, 1.5]
+      angle_deg: [0, 45, 90]
+
+  - id: s02_blocked_corridor
+    description: "Corridor blocked with increasing obstacle density, expect replan or wait+flag"
+    requires: [nav_stack]
+    axes:
+      obstacle_density: [0.2, 0.5, 0.8]
+
+  - id: s03_gnss_degradation
+    description: "GNSS/RTK signal degrades to full dropout"
+    requires: [localization_confidence_estimator]
+    axes:
+      gnss_noise_std_m: [0.1, 1.0, 5.0]
+      gnss_dropout: [false, true]
+
+  - id: s04_sensor_dropout
+    description: "LiDAR, camera, microphone dropout/occlusion individually"
+    requires: [fault_manager, microphone]
+    axes:
+      dropped_sensor: [lidar, camera, microphone]
+      severity: [low, medium, high]
+
+  - id: s05_battery_low
+    description: "Battery reaches low-charge threshold mid-patrol, must dock and resume"
+    requires: [battery_model, dock_nav]
+    axes:
+      payload_mass_kg: [0.0, 5.0, 10.0]
+      low_charge_pct: [15, 10, 5]
+
+  - id: s06_slope_tilt
+    description: "Slope/tilt sweep on uneven terrain, check pitch/roll derate/stop thresholds"
+    requires: []
+    axes:
+      pitch_deg: [0, 10, 20]
+      roll_deg: [0, 10, 20]
+
+  - id: s07_lost_command_link
+    description: "Lost teleop command link (stale velocity), watchdog must stop robot in time"
+    requires: [teleop_watchdog]
+    axes:
+      link_loss_duration_s: [1.0, 3.0, 10.0]
+
+  - id: s08_estop
+    description: "E-stop mid-autonomous-motion and mid-teleop, confirm immediate cutoff"
+    requires: [estop_subsystem]
+    axes:
+      mode_at_trigger: [autonomous, teleop]
+
+  - id: s09_dock_obstructed
+    description: "Dock approach with dock partially obstructed, robot retries then flags"
+    requires: [dock_nav]
+    axes:
+      obstruction_pct: [0, 50, 100]
+
+  - id: s10_lighting_sweep
+    description: "Day vs night vs IR-light-on lighting sweep, confirm detection/localisation hold up"
+    requires: []
+    axes:
+      lighting: [day, night, ir_on]

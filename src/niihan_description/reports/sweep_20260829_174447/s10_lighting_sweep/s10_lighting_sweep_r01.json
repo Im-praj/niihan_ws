@@ -1,0 +1,15 @@
+{
+  "scenario_id": "s10_lighting_sweep",
+  "run_id": "s10_lighting_sweep_r01",
+  "params": {
+    "lighting": "night"
+  },
+  "started_at": "2026-08-29T12:14:47.418105Z",
+  "status": "DRY_RUN_OK",
+  "failure_mode": null,
+  "notes": [
+    "Scenario is executable but --dry-run was requested; only the variant world was generated, gz sim was not launched."
+  ],
+  "world_file": "reports/sweep_20260829_174447/s10_lighting_sweep/s10_lighting_sweep_r01.world",
+  "finished_at": "2026-08-29T12:14:47.418224Z"
+}

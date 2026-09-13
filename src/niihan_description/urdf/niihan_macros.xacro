@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ============================================================
+       Reusable inertia macros for NIIHAN links.
+       All formulas use standard rigid-body inertia tensors and are
+       validated to satisfy the triangle inequality for typical
+       mass/geometry combinations used in this robot.
+       ============================================================ -->
+
+  <xacro:macro name="box_inertia" params="mass x y z ox:=0 oy:=0 oz:=0">
+    <inertial>
+      <origin xyz="${ox} ${oy} ${oz}" rpy="0 0 0"/>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${(1/12.0)*mass*(y*y+z*z)}" ixy="0.0" ixz="0.0"
+        iyy="${(1/12.0)*mass*(x*x+z*z)}" iyz="0.0"
+        izz="${(1/12.0)*mass*(x*x+y*y)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="cylinder_inertia" params="mass r h">
+    <inertial>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${(1/12.0)*mass*(3*r*r+h*h)}" ixy="0.0" ixz="0.0"
+        iyy="${(1/12.0)*mass*(3*r*r+h*h)}" iyz="0.0"
+        izz="${(0.5)*mass*r*r}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="sphere_inertia" params="mass r">
+    <inertial>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${(2/5.0)*mass*r*r}" ixy="0.0" ixz="0.0"
+        iyy="${(2/5.0)*mass*r*r}" iyz="0.0"
+        izz="${(2/5.0)*mass*r*r}"/>
+    </inertial>
+  </xacro:macro>
+
+</robot>

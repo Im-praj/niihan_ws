@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ============================================================
+       NIIHAN concept-stage dimensional parameters.
+       All values are placeholders pending CAD sign-off; change
+       here only, never hard-code these numbers elsewhere.
+       Units: meters, kilograms, radians unless noted.
+  ============================================================ -->
+
+  <!-- Overall envelope -->
+  <xacro:property name="chassis_length" value="0.700"/> <!-- 700mm -->
+  <xacro:property name="chassis_width" value="0.500"/> <!-- 500mm -->
+  <xacro:property name="chassis_height" value="0.220"/>
+  <xacro:property name="ground_clearance" value="0.120"/> <!-- 120mm -->
+  <xacro:property name="wheelbase" value="0.400"/> <!-- 400mm -->
+  <xacro:property name="track_width" value="0.430"/> <!-- 430mm -->
+
+  <!-- Wheels -->
+  <xacro:property name="wheel_diameter" value="0.280"/> <!-- 280mm -->
+  <xacro:property name="wheel_radius" value="${wheel_diameter/2.0}"/>
+  <xacro:property name="wheel_width" value="0.070"/> <!-- 70mm -->
+  <xacro:property name="wheel_mass" value="3.5"/>
+  <xacro:property name="wheel_effort" value="30.0"/> <!-- N*m, per-wheel drive motor effort limit, placeholder pending motor sign-off -->
+  <xacro:property name="wheel_velocity" value="10.0"/> <!-- rad/s, per-wheel max angular velocity, placeholder pending motor sign-off -->
+
+  <!-- Chassis mass distribution -->
+  <xacro:property name="chassis_mass" value="28.0"/>
+  <xacro:property name="battery_mass" value="8.0"/>
+  <xacro:property name="battery_size_x" value="0.220"/>
+  <xacro:property name="battery_size_y" value="0.300"/>
+  <xacro:property name="battery_size_z" value="0.090"/>
+  <xacro:property name="compute_mass" value="2.0"/>
+  <xacro:property name="compute_size_x" value="0.180"/>
+  <xacro:property name="compute_size_y" value="0.140"/>
+  <xacro:property name="compute_size_z" value="0.060"/>
+
+  <!-- Frame -->
+  <xacro:property name="extrusion_size" value="0.040"/> <!-- 40x40mm aluminium extrusion -->
+
+  <!-- Sensor mast -->
+  <xacro:property name="mast_height" value="0.350"/> <!-- 350mm -->
+  <xacro:property name="mast_radius" value="0.030"/>
+  <xacro:property name="mast_mass" value="1.5"/>
+
+  <!-- GNSS/RTK: configurable fix-quality / covariance parameter used by the GNSS sensor plugin's gaussian_noise field -->
+  <xacro:property name="rtk_fix_std_dev" value="0.02"/> <!-- meters, position std dev in good RTK-fixed state; increase to simulate degraded/lost RTK -->
+
+  <!-- Colors -->
+  <material name="niihan_chassis_dark"><color rgba="0.15 0.15 0.16 1.0"/></material>
+  <material name="niihan_metal"><color rgba="0.6 0.6 0.65 1.0"/></material>
+  <material name="niihan_wheel_black"><color rgba="0.08 0.08 0.08 1.0"/></material>
+  <material name="niihan_accent"><color rgba="0.85 0.35 0.05 1.0"/></material>
+
+</robot>

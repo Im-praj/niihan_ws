@@ -1,0 +1,13 @@
+{
+  "scenario_id": "s10_lighting_sweep",
+  "run_id": "s10_lighting_sweep_r01",
+  "params": {
+    "lighting": "night"
+  },
+  "started_at": "2026-08-29T12:03:21.503074Z",
+  "status": null,
+  "failure_mode": null,
+  "notes": [],
+  "world_file": "reports/sweep_20260829_173321/s10_lighting_sweep/s10_lighting_sweep_r01.world",
+  "finished_at": "2026-08-29T12:03:21.503159Z"
+}

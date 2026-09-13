@@ -1,0 +1,16 @@
+{
+  "scenario_id": "s03_gnss_degradation",
+  "run_id": "s03_gnss_degradation_r00",
+  "params": {
+    "gnss_noise_std_m": 0.1,
+    "gnss_dropout": false
+  },
+  "started_at": "2026-09-02T08:58:01.551100Z",
+  "status": "INCONCLUSIVE",
+  "failure_mode": "requires missing subsystems: ['localization_confidence_estimator']",
+  "notes": [
+    "Scenario declared prerequisites that do not exist in this workspace; geometry variant was generated but no behavioral check was possible."
+  ],
+  "world_file": "reports/sweep_20260902_142801/s03_gnss_degradation/s03_gnss_degradation_r00.world",
+  "finished_at": "2026-09-02T08:58:01.551146Z"
+}

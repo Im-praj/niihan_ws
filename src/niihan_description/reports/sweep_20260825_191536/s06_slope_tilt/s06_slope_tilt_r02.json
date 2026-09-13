@@ -1,0 +1,16 @@
+{
+  "scenario_id": "s06_slope_tilt",
+  "run_id": "s06_slope_tilt_r02",
+  "params": {
+    "pitch_deg": 0,
+    "roll_deg": 20
+  },
+  "started_at": "2026-08-25T13:49:07.622850Z",
+  "status": "PASS",
+  "failure_mode": null,
+  "notes": [
+    "gzserver ran cleanly for 20s; only world-level validation (loads, physics steps, no crash)."
+  ],
+  "world_file": "reports/sweep_20260825_191536/s06_slope_tilt/s06_slope_tilt_r02.world",
+  "finished_at": "2026-08-25T13:49:28.723589Z"
+}

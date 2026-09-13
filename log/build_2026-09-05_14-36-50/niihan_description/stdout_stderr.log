@@ -1,0 +1,53 @@
+running develop
+Removing /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan-description.egg-link (link to .)
+running egg_info
+writing ../../build/niihan_description/niihan_description.egg-info/PKG-INFO
+writing dependency_links to ../../build/niihan_description/niihan_description.egg-info/dependency_links.txt
+writing entry points to ../../build/niihan_description/niihan_description.egg-info/entry_points.txt
+writing requirements to ../../build/niihan_description/niihan_description.egg-info/requires.txt
+writing top-level names to ../../build/niihan_description/niihan_description.egg-info/top_level.txt
+reading manifest file '../../build/niihan_description/niihan_description.egg-info/SOURCES.txt'
+writing manifest file '../../build/niihan_description/niihan_description.egg-info/SOURCES.txt'
+running build
+running build_py
+copying niihan_description/patrol_controller.py -> /home/praj/niihan_ws/build/niihan_description/build/lib/niihan_description
+running install
+running install_lib
+creating /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan_description
+copying /home/praj/niihan_ws/build/niihan_description/build/lib/niihan_description/patrol_controller.py -> /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan_description
+copying /home/praj/niihan_ws/build/niihan_description/build/lib/niihan_description/niihan_description_node.py -> /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan_description
+copying /home/praj/niihan_ws/build/niihan_description/build/lib/niihan_description/__init__.py -> /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan_description
+byte-compiling /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan_description/patrol_controller.py to patrol_controller.cpython-310.pyc
+byte-compiling /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan_description/niihan_description_node.py to niihan_description_node.cpython-310.pyc
+byte-compiling /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan_description/__init__.py to __init__.cpython-310.pyc
+running install_data
+copying resource/niihan_description -> /home/praj/niihan_ws/install/niihan_description/share/ament_index/resource_index/packages
+copying package.xml -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description
+copying launch/niihan_description.launch.py -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch
+copying launch/niihan_mapping.launch.py -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch
+copying launch/niihan_gazebo.launch.py -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch
+copying launch/mapping.launch.py -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch
+copying launch/gazebo.launch.py -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch
+copying config/scenarios.yaml -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/config
+copying config/nav2_params.yaml -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/config
+copying config/slam_toolbox_params.yaml -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/config
+copying config/niihan_description_params.yaml -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/config
+copying rviz/niihan_mapping.rviz -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/rviz
+copying urdf/niihan_sensors_mast.xacro -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/urdf
+copying urdf/niihan_properties.xacro -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/urdf
+copying urdf/niihan_macros.xacro -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/urdf
+copying urdf/robot.urdf -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/urdf
+copying urdf/niihan_chassis.xacro -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/urdf
+copying urdf/niihan_mast.xacro -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/urdf
+copying urdf/niihan.urdf.xacro -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/urdf
+copying urdf/niihan_sensors_chassis.xacro -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/urdf
+copying models/robot.urdf -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/models
+copying worlds/sonoma_raceway.world -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/worlds
+copying worlds/niihan_patrol_base.world -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/worlds
+copying scripts/run_scenario_sweep.py -> /home/praj/niihan_ws/install/niihan_description/share/niihan_description/scripts
+running install_egg_info
+Copying ../../build/niihan_description/niihan_description.egg-info to /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan_description-0.1.0-py3.10.egg-info
+running install_scripts
+Installing niihan_description_node script to /home/praj/niihan_ws/install/niihan_description/lib/niihan_description
+Installing patrol_controller script to /home/praj/niihan_ws/install/niihan_description/lib/niihan_description
+writing list of installed files to '/home/praj/niihan_ws/build/niihan_description/install.log'

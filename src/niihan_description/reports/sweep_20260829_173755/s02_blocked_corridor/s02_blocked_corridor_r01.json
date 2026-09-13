@@ -1,0 +1,15 @@
+{
+  "scenario_id": "s02_blocked_corridor",
+  "run_id": "s02_blocked_corridor_r01",
+  "params": {
+    "obstacle_density": 0.5
+  },
+  "started_at": "2026-08-29T12:07:55.905328Z",
+  "status": "INCONCLUSIVE",
+  "failure_mode": "requires missing subsystems: ['nav_stack']",
+  "notes": [
+    "Scenario declared prerequisites that do not exist in this workspace; geometry variant was generated but no behavioral check was possible."
+  ],
+  "world_file": "reports/sweep_20260829_173755/s02_blocked_corridor/s02_blocked_corridor_r01.world",
+  "finished_at": "2026-08-29T12:07:55.905366Z"
+}

@@ -1,0 +1,10 @@
+Gazebo multi-robot simulator, version 11.10.2
+Copyright (C) 2012 Open Source Robotics Foundation.
+Released under the Apache 2 License.
+http://gazebosim.org
+
+[1;31m[Err] [Master.cc:96] [0m[1;31mEXCEPTION: [0m[1;31mUnable to start server[bind: Address already in use]. There is probably another Gazebo process running.
+[0m[1;31m
+[0m[1;31m[0m[1;31m[0m[1;31m[Err] [Master.cc:96] [0m[1;31mEXCEPTION: [0m[1;31mUnable to start server[bind: Address already in use]. There is probably another Gazebo process running.
+[0m[1;31m
+[0m[1;31m[0m[1;31m[0m[1;33m[0m[1;36m[0m[1;31m[0m[1;32m[0m

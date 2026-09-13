@@ -1,0 +1,23 @@
+[0.487s] Invoking command in '/home/praj/niihan_ws/build/niihan_description': PYTHONPATH=/home/praj/niihan_ws/build/niihan_description/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/praj/niihan_ws/build/niihan_description/build --no-deps symlink_data
+[0.631s] running develop
+[0.717s] running egg_info
+[0.717s] writing niihan_description.egg-info/PKG-INFO
+[0.717s] writing dependency_links to niihan_description.egg-info/dependency_links.txt
+[0.717s] writing entry points to niihan_description.egg-info/entry_points.txt
+[0.717s] writing requirements to niihan_description.egg-info/requires.txt
+[0.717s] writing top-level names to niihan_description.egg-info/top_level.txt
+[0.718s] reading manifest file 'niihan_description.egg-info/SOURCES.txt'
+[0.719s] writing manifest file 'niihan_description.egg-info/SOURCES.txt'
+[0.720s] running build_ext
+[0.720s] Creating /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan-description.egg-link (link to .)
+[0.720s] Installing cliff_detector script to /home/praj/niihan_ws/install/niihan_description/lib/niihan_description
+[0.720s] Installing niihan_description_node script to /home/praj/niihan_ws/install/niihan_description/lib/niihan_description
+[0.720s] Installing patrol_controller script to /home/praj/niihan_ws/install/niihan_description/lib/niihan_description
+[0.721s] Installing set_patrol_points script to /home/praj/niihan_ws/install/niihan_description/lib/niihan_description
+[0.721s] Installing teleop_mapping_keyboard script to /home/praj/niihan_ws/install/niihan_description/lib/niihan_description
+[0.721s] Installing vortex_3d_mapper script to /home/praj/niihan_ws/install/niihan_description/lib/niihan_description
+[0.721s] Installing waypoint_patrol script to /home/praj/niihan_ws/install/niihan_description/lib/niihan_description
+[0.721s] 
+[0.721s] Installed /home/praj/niihan_ws/build/niihan_description
+[0.721s] running symlink_data
+[0.737s] Invoked command in '/home/praj/niihan_ws/build/niihan_description' returned '0': PYTHONPATH=/home/praj/niihan_ws/build/niihan_description/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/praj/niihan_ws/build/niihan_description/build --no-deps symlink_data

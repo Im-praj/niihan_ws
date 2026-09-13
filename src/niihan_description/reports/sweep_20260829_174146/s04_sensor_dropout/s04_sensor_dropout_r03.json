@@ -1,0 +1,16 @@
+{
+  "scenario_id": "s04_sensor_dropout",
+  "run_id": "s04_sensor_dropout_r03",
+  "params": {
+    "dropped_sensor": "camera",
+    "severity": "low"
+  },
+  "started_at": "2026-08-29T12:11:46.582133Z",
+  "status": "INCONCLUSIVE",
+  "failure_mode": "requires missing subsystems: ['fault_manager']",
+  "notes": [
+    "Scenario declared prerequisites that do not exist in this workspace; geometry variant was generated but no behavioral check was possible."
+  ],
+  "world_file": "reports/sweep_20260829_174146/s04_sensor_dropout/s04_sensor_dropout_r03.world",
+  "finished_at": "2026-08-29T12:11:46.582209Z"
+}

@@ -1,0 +1,16 @@
+{
+  "scenario_id": "s04_sensor_dropout",
+  "run_id": "s04_sensor_dropout_r02",
+  "params": {
+    "dropped_sensor": "lidar",
+    "severity": "high"
+  },
+  "started_at": "2026-08-29T12:07:55.905981Z",
+  "status": "INCONCLUSIVE",
+  "failure_mode": "requires missing subsystems: ['fault_manager']",
+  "notes": [
+    "Scenario declared prerequisites that do not exist in this workspace; geometry variant was generated but no behavioral check was possible."
+  ],
+  "world_file": "reports/sweep_20260829_173755/s04_sensor_dropout/s04_sensor_dropout_r02.world",
+  "finished_at": "2026-08-29T12:07:55.906019Z"
+}

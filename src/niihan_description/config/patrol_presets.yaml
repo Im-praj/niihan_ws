@@ -1,0 +1,36 @@
+# Patrol route presets for NIIHAN robot.
+# Used by: ros2 run niihan_description set_patrol_points --from-file <this file>
+# Or loaded automatically via the 'preset_file' parameter of waypoint_patrol node.
+
+presets:
+  perimeter:
+    description: "Large rectangular perimeter patrol"
+    waypoints:
+      A: {x: -15.0, y: -10.0}
+      B: {x: 15.0, y: -10.0}
+      C: {x: 15.0, y: 10.0}
+      D: {x: -15.0, y: 10.0}
+
+  inner:
+    description: "Patrol around the central foundation"
+    waypoints:
+      A: {x: -5.0, y: -4.0}
+      B: {x: 5.0, y: -4.0}
+      C: {x: 5.0, y: 4.0}
+      D: {x: -5.0, y: 4.0}
+
+  cross:
+    description: "Diamond / cross patrol pattern"
+    waypoints:
+      A: {x: -12.0, y: 0.0}
+      B: {x: 0.0, y: -8.0}
+      C: {x: 12.0, y: 0.0}
+      D: {x: 0.0, y: 8.0}
+
+  dock:
+    description: "Dock to center and back"
+    waypoints:
+      A: {x: -8.0, y: 0.0}
+      B: {x: 0.0, y: 0.0}
+      C: {x: 8.0, y: 0.0}
+      D: {x: 0.0, y: 5.0}

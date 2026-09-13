@@ -1,0 +1,75 @@
+{
+  "generated_at": "2026-08-25T13:18:35.427188Z",
+  "scenarios": {
+    "s01_pedestrian_crossing": {
+      "total": 4,
+      "pass": 4,
+      "fail": 0,
+      "inconclusive": 0,
+      "dominant_failure_mode": "-"
+    },
+    "s02_blocked_corridor": {
+      "total": 4,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 4,
+      "dominant_failure_mode": "requires missing subsystems: ['nav_stack']"
+    },
+    "s03_gnss_degradation": {
+      "total": 4,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 4,
+      "dominant_failure_mode": "requires missing subsystems: ['geofence_monitor']"
+    },
+    "s04_sensor_dropout": {
+      "total": 4,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 4,
+      "dominant_failure_mode": "requires missing subsystems: ['fault_manager']"
+    },
+    "s05_low_battery_dock_resume": {
+      "total": 4,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 4,
+      "dominant_failure_mode": "requires missing subsystems: ['battery_model']"
+    },
+    "s06_slope_tilt": {
+      "total": 4,
+      "pass": 4,
+      "fail": 0,
+      "inconclusive": 0,
+      "dominant_failure_mode": "-"
+    },
+    "s07_teleop_watchdog": {
+      "total": 4,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 4,
+      "dominant_failure_mode": "requires missing subsystems: ['teleop_watchdog']"
+    },
+    "s08_estop": {
+      "total": 4,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 4,
+      "dominant_failure_mode": "requires missing subsystems: ['estop_subsystem']"
+    },
+    "s09_dock_partial_obstruction": {
+      "total": 4,
+      "pass": 4,
+      "fail": 0,
+      "inconclusive": 0,
+      "dominant_failure_mode": "-"
+    },
+    "s10_lighting_sweep": {
+      "total": 4,
+      "pass": 4,
+      "fail": 0,
+      "inconclusive": 0,
+      "dominant_failure_mode": "-"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "scenario_id": "s01_pedestrian_crossing",
+  "run_id": "s01_pedestrian_crossing_r00",
+  "params": {
+    "distance_m": 1.5,
+    "speed_mps": 0.5,
+    "angle_deg": 45,
+    "lighting": "day"
+  },
+  "started_at": "2026-08-25T13:16:44.569745Z",
+  "status": "FAIL",
+  "failure_mode": "gzserver_exit_255",
+  "notes": [
+    "See log: s01_pedestrian_crossing_r00.gz.log"
+  ],
+  "world_file": "reports/sweep_20260825_184644/s01_pedestrian_crossing/s01_pedestrian_crossing_r00.world",
+  "finished_at": "2026-08-25T13:16:45.071178Z"
+}

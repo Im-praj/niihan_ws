@@ -1,0 +1,15 @@
+{
+  "scenario_id": "s08_estop",
+  "run_id": "s08_estop_r00",
+  "params": {
+    "mode_at_trigger": "autonomous"
+  },
+  "started_at": "2026-09-02T08:53:08.480543Z",
+  "status": "INCONCLUSIVE",
+  "failure_mode": "requires missing subsystems: ['estop_subsystem']",
+  "notes": [
+    "Scenario declared prerequisites that do not exist in this workspace; geometry variant was generated but no behavioral check was possible."
+  ],
+  "world_file": "reports/sweep_20260902_142308/s08_estop/s08_estop_r00.world",
+  "finished_at": "2026-09-02T08:53:08.480588Z"
+}

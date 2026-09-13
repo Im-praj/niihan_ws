@@ -1,0 +1,238 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ============================================================
+       NIIHAN chassis, base_footprint/base_link and 4x wheel links.
+       Uses properties from niihan_properties.xacro and inertia
+       macros from niihan_macros.xacro. All dimensions configurable.
+  ============================================================ -->
+
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${wheel_radius}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 ${ground_clearance/2 - 0.025}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${chassis_length*0.88} ${chassis_width*0.82} ${chassis_height*0.72}"/>
+      </geometry>
+      <material name="niihan_chassis_dark">
+        <color rgba="0.07 0.08 0.09 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${ground_clearance/2 - 0.025}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${chassis_length*0.88} ${chassis_width*0.82} ${chassis_height*0.72}"/>
+      </geometry>
+    </collision>
+    <xacro:box_inertia mass="${chassis_mass}" x="${chassis_length}" y="${chassis_width}" z="${chassis_height}" ox="0" oy="0" oz="${ground_clearance/2 - 0.025}"/>
+  </link>
+
+  <gazebo reference="base_link">
+    <material>Gazebo/DarkGrey</material>
+  </gazebo>
+
+  <link name="upper_deck">
+    <visual>
+      <origin xyz="0.02 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.48 0.34 0.055"/></geometry>
+      <material name="upper_deck_black"><color rgba="0.025 0.03 0.035 1.0"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0.02 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.48 0.34 0.055"/></geometry>
+    </collision>
+    <xacro:box_inertia mass="1.0" x="0.48" y="0.34" z="0.055"/>
+  </link>
+  <joint name="upper_deck_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="upper_deck"/>
+    <origin xyz="0.02 0 ${ground_clearance + 0.035}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- 40x40mm aluminium extrusion frame rails (collision-relevant structural detail) -->
+  <xacro:macro name="extrusion_rail" params="name x y z len_axis">
+    <link name="${name}">
+      <visual>
+        <geometry>
+          <box size="${len_axis=='x' and chassis_length*0.9 or extrusion_size} ${len_axis=='y' and chassis_width*0.9 or extrusion_size} ${extrusion_size}"/>
+        </geometry>
+        <material name="${name}_extrusion_silver">
+          <color rgba="0.65 0.65 0.68 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="${len_axis=='x' and chassis_length*0.9 or extrusion_size} ${len_axis=='y' and chassis_width*0.9 or extrusion_size} ${extrusion_size}"/>
+        </geometry>
+      </collision>
+      <xacro:box_inertia mass="0.3" x="${extrusion_size}" y="${extrusion_size}" z="${extrusion_size}"/>
+    </link>
+    <joint name="${name}_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="${name}"/>
+      <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:extrusion_rail name="frame_rail_front" x="0" y="0" z="${ground_clearance + 0.01}" len_axis="x"/>
+
+  <xacro:macro name="niihan_rocker" params="side y_off">
+    <link name="${side}_rocker">
+      <!-- Layered beams approximate the sculpted rocker plate in the reference. -->
+      <visual>
+        <origin xyz="${wheelbase/2} 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="${wheelbase + 0.10} 0.075 0.075"/>
+        </geometry>
+        <material name="${side}_rocker_metal">
+          <color rgba="0.62 0.63 0.65 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="${wheelbase/2} 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="${wheelbase + 0.10} 0.075 0.075"/>
+        </geometry>
+      </collision>
+      <visual>
+        <origin xyz="${wheelbase/2 + 0.12} 0 0.055" rpy="0 -0.48 0"/>
+        <geometry>
+          <box size="0.25 0.075 0.075"/>
+        </geometry>
+        <material name="${side}_rocker_upper_front">
+          <color rgba="0.78 0.79 0.80 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="${wheelbase/2 + 0.12} 0 0.055" rpy="0 -0.48 0"/>
+        <geometry>
+          <box size="0.25 0.075 0.075"/>
+        </geometry>
+      </collision>
+      <visual>
+        <origin xyz="${wheelbase/2} 0 -0.045" rpy="0 0 0"/>
+        <geometry><box size="${wheelbase + 0.04} 0.085 0.06"/></geometry>
+        <material name="${side}_rocker_lower_dark"><color rgba="0.08 0.09 0.10 1.0"/></material>
+      </visual>
+      <collision>
+        <origin xyz="${wheelbase/2} 0 -0.045" rpy="0 0 0"/>
+        <geometry><box size="${wheelbase + 0.04} 0.085 0.06"/></geometry>
+      </collision>
+      <visual>
+        <origin xyz="${wheelbase/2 - 0.12} 0 0.055" rpy="0 0.48 0"/>
+        <geometry>
+          <box size="0.25 0.075 0.075"/>
+        </geometry>
+        <material name="${side}_rocker_upper_rear">
+          <color rgba="0.48 0.49 0.51 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="${wheelbase/2 - 0.12} 0 0.055" rpy="0 0.48 0"/>
+        <geometry>
+          <box size="0.25 0.075 0.075"/>
+        </geometry>
+      </collision>
+      <visual>
+        <origin xyz="${wheelbase/2} 0 0.035" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="0.075" length="0.085"/>
+        </geometry>
+        <material name="${side}_rocker_pivot_outer">
+          <color rgba="0.72 0.73 0.74 1.0"/>
+        </material>
+      </visual>
+      <visual>
+        <origin xyz="${wheelbase/2} 0 0.035" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="0.043" length="0.09"/>
+        </geometry>
+        <material name="${side}_rocker_pivot_inner">
+          <color rgba="0.12 0.13 0.14 1.0"/>
+        </material>
+      </visual>
+      <xacro:box_inertia mass="1.5" x="${wheelbase + 0.08}" y="0.06" z="0.06"/>
+    </link>
+    <joint name="${side}_rocker_joint" type="revolute">
+      <parent link="base_link"/>
+      <child link="${side}_rocker"/>
+      <origin xyz="${-wheelbase/2} ${y_off} 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="-0.15" upper="0.15" effort="80.0" velocity="2.0"/>
+      <dynamics damping="2.0" friction="0.5" spring_stiffness="150.0" spring_reference="0.0"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:niihan_rocker side="left" y_off="${track_width/2}"/>
+  <xacro:niihan_rocker side="right" y_off="${-track_width/2}"/>
+
+  <!-- Wheel macro: side (left/right), pos (front/rear), x/y offsets and mirror sign -->
+  <xacro:macro name="niihan_wheel" params="name parent x_off y_off hub_y hub_offset mu1:=1.0 mu2:=1.0">
+    <link name="${name}">
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+        <material name="${name}_rubber_black">
+          <color rgba="0.05 0.05 0.05 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+      </collision>
+      <visual>
+        <origin xyz="0 ${hub_y} 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="0.075" length="0.018"/></geometry>
+        <material name="${name}_hub_outer"><color rgba="0.10 0.11 0.12 1.0"/></material>
+      </visual>
+      <visual>
+        <origin xyz="0 ${hub_y + hub_offset} 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="0.035" length="0.022"/></geometry>
+        <material name="${name}_hub_center"><color rgba="0.28 0.29 0.30 1.0"/></material>
+      </visual>
+      <visual>
+        <origin xyz="0 ${hub_y + 2*hub_offset} 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="0.012" length="0.025"/></geometry>
+        <material name="${name}_hub_cap"><color rgba="0.06 0.07 0.08 1.0"/></material>
+      </visual>
+      <xacro:cylinder_inertia mass="${wheel_mass}" r="${wheel_radius}" h="${wheel_width}"/>
+    </link>
+    <joint name="${name}_joint" type="continuous">
+      <parent link="${parent}"/>
+      <child link="${name}"/>
+      <origin xyz="${x_off} ${y_off} 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <dynamics damping="0.2" friction="0.1"/>
+      <limit effort="${wheel_effort}" velocity="${wheel_velocity}"/>
+    </joint>
+    <gazebo reference="${name}">
+      <material>Gazebo/Black</material>
+      <mu1>${mu1}</mu1>
+      <mu2>${mu2}</mu2>
+      <fdir1>1 0 0</fdir1>
+      <kp>10000000.0</kp>
+      <kd>1.0</kd>
+      <minDepth>0.001</minDepth>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- Front wheels (passive) on suspension rockers. Low lateral friction for skid steering. -->
+  <xacro:niihan_wheel name="front_left_wheel"  parent="left_rocker"  x_off="${wheelbase}" y_off="0" hub_y="${wheel_width/2}"  hub_offset="0.01" mu1="0.8" mu2="0.1"/>
+  <xacro:niihan_wheel name="front_right_wheel" parent="right_rocker" x_off="${wheelbase}" y_off="0" hub_y="${-wheel_width/2}" hub_offset="-0.01" mu1="0.8" mu2="0.1"/>
+
+  <!-- Rear wheels (driven) on base_link. High friction for drive traction. -->
+  <xacro:niihan_wheel name="rear_left_wheel"   parent="base_link"  x_off="${-wheelbase/2}" y_off="${track_width/2}"  hub_y="${wheel_width/2}"  hub_offset="0.01" mu1="0.8" mu2="0.8"/>
+  <xacro:niihan_wheel name="rear_right_wheel"  parent="base_link"  x_off="${-wheelbase/2}" y_off="${-track_width/2}" hub_y="${-wheel_width/2}" hub_offset="-0.01" mu1="0.8" mu2="0.8"/>
+
+</robot>

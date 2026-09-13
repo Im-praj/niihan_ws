@@ -1,0 +1,17 @@
+{
+  "scenario_id": "s10_lighting_sweep",
+  "run_id": "s10_lighting_sweep_r00",
+  "params": {
+    "lighting": "day",
+    "obstacle_density": "low",
+    "start_pose": "corridor_mid"
+  },
+  "started_at": "2026-08-25T13:17:15.078973Z",
+  "status": "PASS",
+  "failure_mode": null,
+  "notes": [
+    "gzserver ran cleanly for 20s; only world-level validation (loads, physics steps, no crash)."
+  ],
+  "world_file": "reports/sweep_20260825_184314/s10_lighting_sweep/s10_lighting_sweep_r00.world",
+  "finished_at": "2026-08-25T13:17:35.166751Z"
+}
