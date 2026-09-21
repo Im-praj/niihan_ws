@@ -56,7 +56,9 @@ class Vortex3DMapper(Node):
         super().__init__('vortex_3d_mapper')
 
         # ── Parameters ───────────────────────────────────────────────
-        self.declare_parameter('use_sim_time', True)
+        try: self.declare_parameter('use_sim_time', True)
+        except rclpy.exceptions.ParameterAlreadyDeclaredException: pass
+        except rclpy.exceptions.ParameterAlreadyDeclaredException: pass
         self.declare_parameter('voxel_resolution', 0.05)
         self.declare_parameter('max_range', 25.0)
         self.declare_parameter('min_range', 0.5)
@@ -113,6 +115,7 @@ class Vortex3DMapper(Node):
     # Point cloud callback
     # ================================================================
     def _cb_pointcloud(self, msg: PointCloud2):
+        self.get_logger().info(f"Got cloud! frame_id={msg.header.frame_id}")
         """Transform incoming point cloud into map frame and add to voxel set."""
         # Look up transform from sensor frame to map
         try:
@@ -127,12 +130,12 @@ class Vortex3DMapper(Node):
                 f'TF lookup failed ({msg.header.frame_id} → '
                 f'{self._map_frame}): {e}',
                 throttle_duration_sec=5.0)
-            return
+            self.get_logger().info("Returning early"); return
 
         # Extract x, y, z offsets from PointCloud2 fields
         field_map = {f.name: f.offset for f in msg.fields}
         if not all(k in field_map for k in ('x', 'y', 'z')):
-            return
+            self.get_logger().info("Returning early"); return
 
         x_off = field_map['x']
         y_off = field_map['y']
@@ -142,7 +145,7 @@ class Vortex3DMapper(Node):
         n_pts = len(data) // step
 
         if n_pts == 0:
-            return
+            self.get_logger().info("Returning early"); return
 
         # Fast extraction via numpy
         raw = np.frombuffer(data, dtype=np.uint8).reshape(n_pts, step)
@@ -159,7 +162,7 @@ class Vortex3DMapper(Node):
         xs, ys, zs = xs[mask], ys[mask], zs[mask]
 
         if len(xs) == 0:
-            return
+            self.get_logger().info("Returning early"); return
 
         # ── Transform to map frame ──────────────────────────────────
         t = tf.transform.translation
@@ -212,7 +215,7 @@ class Vortex3DMapper(Node):
     def _publish_map(self):
         """Publish the full and downsampled 3D point cloud map."""
         if not self._voxels:
-            return
+            self.get_logger().info("Returning early"); return
 
         stamp = self.get_clock().now().to_msg()
 
@@ -267,7 +270,7 @@ class Vortex3DMapper(Node):
         pts = self._voxels_to_array(self._voxels, self._voxel_res)
         n = len(pts)
         if n == 0:
-            return
+            self.get_logger().info("Returning early"); return
 
         try:
             with open(pcd_path, 'w') as f:

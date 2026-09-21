@@ -16,9 +16,14 @@ config/slam_toolbox_params.yaml
 launch/gazebo.launch.py
 launch/mapping.launch.py
 launch/niihan_description.launch.py
+launch/niihan_full_system.launch.py
 launch/niihan_gazebo.launch.py
 launch/niihan_mapping.launch.py
 launch/teleop_mapping.launch.py
+models/niihan_environment/model.config
+models/niihan_environment/model.sdf
+models/niihan_environment/meshes/construction_site_m1.glb
+models/niihan_environment/meshes/constructionsite_model1.stl
 niihan_description/__init__.py
 niihan_description/cliff_detector.py
 niihan_description/differential_drive.py
@@ -32,7 +37,6 @@ niihan_description/vortex_3d_mapper.py
 niihan_description/waypoint_patrol.py
 resource/niihan_description
 rviz/niihan_mapping.rviz
-scripts/run_scenario_sweep.py
 test/test_differential_drive.py
 urdf/niihan.urdf.xacro
 urdf/niihan_chassis.xacro
@@ -41,5 +45,6 @@ urdf/niihan_mast.xacro
 urdf/niihan_properties.xacro
 urdf/niihan_sensors_chassis.xacro
 urdf/niihan_sensors_mast.xacro
+worlds/constructionsite model1.stl
 worlds/niihan_patrol_base.world
-worlds/sonoma_raceway.world
+worlds/niihan_stl.world

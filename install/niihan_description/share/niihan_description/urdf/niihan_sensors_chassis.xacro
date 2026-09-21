@@ -55,7 +55,7 @@
   <joint name="lidar_joint" type="fixed">
     <parent link="base_link"/>
     <child link="chassis_lidar_link"/>
-    <origin xyz="0 0 ${chassis_height/2 + 0.03}" rpy="0 0 0"/>
+    <origin xyz="0 0 0.22" rpy="0 0 0"/>
   </joint>
   <gazebo reference="chassis_lidar_link">
     <sensor name="lidar_sensor" type="gpu_lidar">

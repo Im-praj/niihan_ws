@@ -27,6 +27,7 @@
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch/niihan_gazebo.launch.py
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch/mapping.launch.py
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch/teleop_mapping.launch.py
+/home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch/niihan_full_system.launch.py
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch/gazebo.launch.py
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/config/scenarios.yaml
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/config/patrol_presets.yaml
@@ -41,10 +42,14 @@
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/urdf/niihan_mast.xacro
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/urdf/niihan.urdf.xacro
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/urdf/niihan_sensors_chassis.xacro
-/home/praj/niihan_ws/install/niihan_description/share/niihan_description/models
-/home/praj/niihan_ws/install/niihan_description/share/niihan_description/worlds/sonoma_raceway.world
+/home/praj/niihan_ws/install/niihan_description/share/niihan_description/scripts
+/home/praj/niihan_ws/install/niihan_description/share/niihan_description/models/niihan_environment/model.config
+/home/praj/niihan_ws/install/niihan_description/share/niihan_description/models/niihan_environment/model.sdf
+/home/praj/niihan_ws/install/niihan_description/share/niihan_description/models/niihan_environment/meshes/construction_site_m1.glb
+/home/praj/niihan_ws/install/niihan_description/share/niihan_description/models/niihan_environment/meshes/constructionsite_model1.stl
+/home/praj/niihan_ws/install/niihan_description/share/niihan_description/worlds/niihan_stl.world
+/home/praj/niihan_ws/install/niihan_description/share/niihan_description/worlds/constructionsite model1.stl
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/worlds/niihan_patrol_base.world
-/home/praj/niihan_ws/install/niihan_description/share/niihan_description/scripts/run_scenario_sweep.py
 /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan_description-0.1.0-py3.10.egg-info/zip-safe
 /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan_description-0.1.0-py3.10.egg-info/requires.txt
 /home/praj/niihan_ws/install/niihan_description/lib/python3.10/site-packages/niihan_description-0.1.0-py3.10.egg-info/PKG-INFO

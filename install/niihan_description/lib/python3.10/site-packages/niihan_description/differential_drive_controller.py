@@ -23,10 +23,10 @@ class DifferentialDriveController(Node):
         self.track_width = self.get_parameter('track_width').value
         self.max_wheel_velocity = self.get_parameter('max_wheel_velocity').value
 
-        self.left_pub = self.create_publisher(
-            Float64, '/niihan/rear_left_wheel_velocity', 10)
-        self.right_pub = self.create_publisher(
-            Float64, '/niihan/rear_right_wheel_velocity', 10)
+        self.fl_pub = self.create_publisher(Float64, '/niihan/front_left_wheel_velocity', 10)
+        self.fr_pub = self.create_publisher(Float64, '/niihan/front_right_wheel_velocity', 10)
+        self.rl_pub = self.create_publisher(Float64, '/niihan/rear_left_wheel_velocity', 10)
+        self.rr_pub = self.create_publisher(Float64, '/niihan/rear_right_wheel_velocity', 10)
         self.gazebo_pub = self.create_publisher(
             Twist, self.get_parameter('gazebo_topic').value, 10)
         self.create_subscription(Twist, '/niihan/cmd_vel', self.command_callback, 10)
@@ -45,8 +45,10 @@ class DifferentialDriveController(Node):
         left_message.data = left
         right_message = Float64()
         right_message.data = right
-        self.left_pub.publish(left_message)
-        self.right_pub.publish(right_message)
+        self.fl_pub.publish(left_message)
+        self.rl_pub.publish(left_message)
+        self.fr_pub.publish(right_message)
+        self.rr_pub.publish(right_message)
 
         # Calculate RPM
         import math

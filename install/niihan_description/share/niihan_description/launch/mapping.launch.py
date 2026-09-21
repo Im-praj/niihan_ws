@@ -85,33 +85,23 @@ def generate_launch_description():
         ],
     )
 
-    # 3. 3D Terrain Mapping: octomap_server
-    octomap_server_node = Node(
-        package='octomap_server',
-        executable='octomap_server_node',
-        name='octomap_server',
+    # 3. Vortex 3D Point Cloud Mapper (replaces OctoMap)
+    vortex_3d_mapper_node = Node(
+        package='niihan_description',
+        executable='vortex_3d_mapper',
+        name='vortex_3d_mapper',
         output='screen',
         parameters=[{
             'use_sim_time': True,
-            'resolution': 0.08,
-            'frame_id': 'map',
-            'sensor_model/max_range': 25.0,
-            'sensor_model/hit': 0.7,
-            'sensor_model/miss': 0.4,
-            'sensor_model/min': 0.12,
-            'sensor_model/max': 0.97,
-            'filter_ground': True,
-            'ground_filter/distance': 0.04,
-            'ground_filter/angle': 0.15,
-            'ground_filter/plane_distance': 0.07,
-            'pointcloud_min_z': -1.0,
-            'pointcloud_max_z': 10.0,
-            'occupancy_min_z': 0.05,
-            'occupancy_max_z': 3.0,
+            'voxel_resolution': 0.05,
+            'max_range': 25.0,
+            'min_range': 0.5,
+            'publish_rate': 1.0,
+            'save_interval': 30.0,
+            'map_frame': 'map',
+            'max_points': 5000000,
+            'downsample_resolution': 0.15,
         }],
-        remappings=[
-            ('cloud_in', '/niihan/sensors/lidar/points'),
-        ],
     )
 
     # 4. Autonomous Obstacle Avoidance Patrol Controller
@@ -172,7 +162,7 @@ def generate_launch_description():
         nav2_launch,
         gazebo_launch,
         slam_toolbox_node,
-        octomap_server_node,
+        vortex_3d_mapper_node,
         delayed_patrol_controller,
         rviz_node,
     ])

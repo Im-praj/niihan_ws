@@ -26,6 +26,7 @@
     </joint>
     <gazebo reference="camera_${suffix}_link">
       <sensor type="camera" name="camera_${suffix}_sensor">
+        <pose>0 0 0 3.1415926535 0 0</pose>
         <always_on>1</always_on>
         <update_rate>15.0</update_rate>
         <topic>/niihan/sensors/panoramic/${suffix}/image_raw</topic>
@@ -131,7 +132,7 @@
     <sensor type="gpu_lidar" name="lidar_3d_sensor">
       <always_on>1</always_on>
       <update_rate>10.0</update_rate>
-      <topic>/niihan/sensors/lidar/points</topic>
+      <topic>/niihan/sensors/lidar</topic>
       <gz:frame_id>mast_lidar_link</gz:frame_id>
       <lidar>
         <scan>

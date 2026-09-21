@@ -37,7 +37,7 @@ def generate_launch_description():
 
     patrol_arg = DeclareLaunchArgument(
         'patrol',
-        default_value='true',
+        default_value='false',
         description='Run autonomous patrol node',
     )
 
@@ -55,7 +55,7 @@ def generate_launch_description():
     )
     octomap_arg = DeclareLaunchArgument(
         'octomap',
-        default_value='false',
+        default_value='true',
         description='Run 3D OctoMap mapping from the 3D LiDAR (legacy, default: false)',
     )
     vortex_3d_arg = DeclareLaunchArgument(
@@ -70,7 +70,7 @@ def generate_launch_description():
     )
     rqt_cam_arg = DeclareLaunchArgument(
         'rqt_cam',
-        default_value='false',
+        default_value='true',
         description='Launch rqt_image_view for live front camera stream',
     )
 
@@ -82,6 +82,8 @@ def generate_launch_description():
             ':',
             pkg_description,
             ':',
+            os.path.join(pkg_description, 'models'),
+            ':',
             os.environ.get('GZ_SIM_RESOURCE_PATH', '')
         ]
     )
@@ -92,6 +94,8 @@ def generate_launch_description():
             os.path.join(pkg_description, '..'),
             ':',
             pkg_description,
+            ':',
+            os.path.join(pkg_description, 'models'),
             ':',
             os.environ.get('IGN_GAZEBO_RESOURCE_PATH', '')
         ]
@@ -144,9 +148,9 @@ def generate_launch_description():
         arguments=[
             '-name', 'niihan',
             '-topic', '/robot_description',
-            '-x', '-8.0',
+            '-x', '-1.0',
             '-y', '0.0',
-            '-z', '0.02',
+            '-z', '0.808',
             '-Y', '0.0',
         ],
         output='screen',
@@ -343,6 +347,19 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}],
     )
 
+    static_tf_lidar_3d = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_tf_lidar_3d_alias',
+        arguments=[
+            '--x', '0', '--y', '0', '--z', '0',
+            '--roll', '0', '--pitch', '0', '--yaw', '0',
+            '--frame-id', 'mast_lidar_link',
+            '--child-frame-id', 'niihan/base_footprint/lidar_3d_sensor',
+        ],
+        parameters=[{'use_sim_time': True}],
+    )
+
     nav2_params_file = os.path.join(pkg_description, 'config', 'nav2_params.yaml')
     nav2_group = GroupAction(
         condition=IfCondition(LaunchConfiguration('launch_nav2')),
@@ -385,6 +402,7 @@ def generate_launch_description():
         bridge_node,
         differential_drive_controller,
         static_tf_lidar,
+        static_tf_lidar_3d,
         slam_toolbox_node,
         octomap_node,
         vortex_3d_mapper_node,

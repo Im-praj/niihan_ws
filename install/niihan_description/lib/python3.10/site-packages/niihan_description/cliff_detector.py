@@ -55,7 +55,9 @@ class CliffDetector(Node):
         super().__init__('cliff_detector')
 
         # ── Parameters ───────────────────────────────────────────────
-        self.declare_parameter('use_sim_time', True)
+        try: self.declare_parameter('use_sim_time', True)
+        except rclpy.exceptions.ParameterAlreadyDeclaredException: pass
+        except rclpy.exceptions.ParameterAlreadyDeclaredException: pass
         self.declare_parameter('ground_height_threshold', 0.15)
         self.declare_parameter('cliff_check_radius', 6.0)
         self.declare_parameter('cell_size', 0.5)

@@ -1,9 +1,0 @@
-Gazebo multi-robot simulator, version 11.10.2
-Copyright (C) 2012 Open Source Robotics Foundation.
-Released under the Apache 2 License.
-http://gazebosim.org
-
-[1;32m[Msg] [0m[1;32mWaiting for master.[0m[1;32m
-[0m[1;32m[0m[1;32m[0m[1;32m[Msg] [0m[1;32mConnected to gazebo master @ [0m[1;32mhttp://127.0.0.1:11345[0m[1;32m
-[0m[1;32m[0m[1;32m[0m[1;32m[Msg] [0m[1;32mPublicized address: [0m[1;32m10.76.127.86[0m[1;32m
-[0m[1;32m[0m[1;32m[0m[1;31mError [Converter.cc:113][0m Unable to convert from SDF version 1.8 to 1.7

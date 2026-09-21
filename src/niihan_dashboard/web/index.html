@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIIHAN GCS | 4WD SKID-STEER</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-title">NIIHAN | 4WD SKID-STEER</div>
+        <div class="top-stats">
+            <span id="conn-status" class="status-badge error">DISCONNECTED</span>
+            <span id="mode-status" class="status-badge warning">MANUAL</span>
+            <span id="loc-status" class="status-badge info">LOC: RTAB-MAP</span>
+            <span id="nav-status" class="status-badge info">NAV2: CHECKING</span>
+            <span id="batt-status" class="status-badge ok">BATT: 98%</span>
+            <span id="vel-status" class="status-badge ok">VEL: 0.0 m/s</span>
+        </div>
+        <button id="btn-estop" class="btn-estop">E-STOP</button>
+        <button id="btn-clear-estop" class="btn-clear-estop" style="display:none;">CLEAR E-STOP</button>
+    </div>
+
+    <div class="main-layout">
+        <!-- Center/Left: 3D Map View -->
+        <div class="view-panel">
+            <div class="view-tabs">
+                <button class="tab-btn active" data-target="view-3d">3D RTAB-MAP</button>
+                <button class="tab-btn" data-target="view-2d">2D NAV MAP</button>
+            </div>
+            
+            <div class="view-container active" id="view-3d">
+                <div id="three-canvas-container"></div>
+                <div class="view-overlay">
+                    <span id="map-status-3d">MAP SOURCE: RTAB-MAP | STATUS: WAITING</span>
+                </div>
+            </div>
+
+            <div class="view-container" id="view-2d" style="display:none;">
+                <canvas id="map-canvas" width="800" height="600"></canvas>
+            </div>
+        </div>
+
+        <!-- Right: Camera & Telemetry -->
+        <div class="side-panel">
+            <div class="panel-section">
+                <div class="section-title">CAMERA FEED</div>
+                <div class="camera-wrapper">
+                    <img id="camera-stream" src="" alt="Waiting for feed..." />
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-title">TELEMETRY</div>
+                <div class="telemetry-grid">
+                    <div class="tel-item"><span class="tel-label">X:</span> <span id="tel-x" class="tel-val">0.00</span>m</div>
+                    <div class="tel-item"><span class="tel-label">Y:</span> <span id="tel-y" class="tel-val">0.00</span>m</div>
+                    <div class="tel-item"><span class="tel-label">Z:</span> <span id="tel-z" class="tel-val">0.00</span>m</div>
+                    <div class="tel-item"><span class="tel-label">YAW:</span> <span id="tel-yaw" class="tel-val">0.0</span>°</div>
+                    <div class="tel-item"><span class="tel-label">VEL X:</span> <span id="tel-vel-x" class="tel-val">0.00</span>m/s</div>
+                    <div class="tel-item"><span class="tel-label">VEL Z:</span> <span id="tel-vel-z" class="tel-val">0.00</span>r/s</div>
+                </div>
+                
+                <div class="section-title" style="margin-top:10px;">MANUAL CONTROL</div>
+                <div class="mode-toggles">
+                    <button id="btn-mode-manual" class="btn active">MANUAL</button>
+                    <button id="btn-mode-auto" class="btn">AUTO</button>
+                </div>
+                <div class="joystick-wrapper" id="joystick-wrapper">
+                    <div id="joystick-zone"><div id="joystick-knob"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom: Mission Planner & Geofence -->
+    <div class="bottom-panel">
+        <div class="mission-header">
+            <div class="mission-title">MISSION PLANNER & GEOFENCE</div>
+            <div class="mission-global-actions">
+                <button id="btn-geofence" class="btn">CREATE GEOFENCE</button>
+                <button id="btn-finish-gf" class="btn btn-success" style="display:none;">FINISH GEOFENCE</button>
+                <button id="btn-add-wp" class="btn">ADD WAYPOINT</button>
+                <button id="btn-set-goal" class="btn">SET SINGLE GOAL</button>
+            </div>
+        </div>
+
+        <div class="mission-content">
+            <div class="waypoints-section">
+                <div class="table-container">
+                    <table class="wp-table">
+                        <thead>
+                            <tr>
+                                <th>WP</th>
+                                <th>X</th>
+                                <th>Y</th>
+                                <th>Z</th>
+                                <th>YAW (°)</th>
+                                <th>STATUS</th>
+                                <th>ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wp-list">
+                            <!-- WPs injected here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="wp-actions">
+                    <button id="btn-clear-mission" class="btn btn-warning">CLEAR</button>
+                    <button id="btn-write-mission" class="btn btn-primary">WRITE MISSION</button>
+                </div>
+            </div>
+
+            <div class="execution-section">
+                <div class="exec-status">
+                    <div class="status-label">MISSION STATUS</div>
+                    <div id="mission-state" class="state-text">IDLE</div>
+                    <div id="mission-progress" class="progress-text">-</div>
+                </div>
+                <div class="exec-actions">
+                    <button id="btn-start-mission" class="btn btn-success" disabled>START MISSION</button>
+                    <button id="btn-cancel-mission" class="btn btn-danger">CANCEL MISSION</button>
+                </div>
+                <div class="geofence-status-box">
+                    <div class="status-label">GEOFENCE STATUS</div>
+                    <div id="gf-state" class="state-text">DISABLED</div>
+                    <button id="btn-clear-gf" class="btn btn-warning" style="margin-top:5px; width:100%;">CLEAR GEOFENCE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/viewer3d.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
