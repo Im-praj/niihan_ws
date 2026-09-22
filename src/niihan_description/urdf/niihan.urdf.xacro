@@ -55,6 +55,8 @@
       <joint_name>rear_right_wheel_joint</joint_name>
       <joint_name>ptz_pan_joint</joint_name>
       <joint_name>ptz_tilt_joint</joint_name>
+      <joint_name>left_rocker_joint</joint_name>
+      <joint_name>right_rocker_joint</joint_name>
     </plugin>
   </gazebo>
 
