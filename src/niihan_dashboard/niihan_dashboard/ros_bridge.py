@@ -54,6 +54,9 @@ class ROSBridgeNode(Node):
         self.path_history = []
         self.pointcloud_data = []
         
+        self.active_nav_goal_handle = None
+        self.active_fw_goal_handle = None
+        
         self.last_pc_time = 0.0
         
         # Publishers
@@ -168,8 +171,12 @@ class ROSBridgeNode(Node):
                 self.safety_manager.trigger_estop()
                 self.get_logger().error("GEOFENCE BREACH: E-STOP TRIGGERED")
                 self.mission_manager.cancel_mission()
-                self.nav_to_pose_client._cancel_goal_async(None)
-                self.follow_waypoints_client._cancel_goal_async(None)
+                if self.active_nav_goal_handle:
+                    self.active_nav_goal_handle.cancel_goal_async()
+                    self.active_nav_goal_handle = None
+                if self.active_fw_goal_handle:
+                    self.active_fw_goal_handle.cancel_goal_async()
+                    self.active_fw_goal_handle = None
 
         if self.safety_manager.mode == "MANUAL" and not self.safety_manager.can_move(self.telemetry["pose"]["x"], self.telemetry["pose"]["y"]):
             msg = Twist()
@@ -185,8 +192,12 @@ class ROSBridgeNode(Node):
         if action == "estop":
             self.safety_manager.trigger_estop()
             self.mission_manager.cancel_mission()
-            self.nav_to_pose_client._cancel_goal_async(None)
-            self.follow_waypoints_client._cancel_goal_async(None)
+            if self.active_nav_goal_handle:
+                self.active_nav_goal_handle.cancel_goal_async()
+                self.active_nav_goal_handle = None
+            if self.active_fw_goal_handle:
+                self.active_fw_goal_handle.cancel_goal_async()
+                self.active_fw_goal_handle = None
             self.get_logger().info("E-STOP ACTIVATED")
             
         elif action == "clear_estop":
@@ -240,7 +251,9 @@ class ROSBridgeNode(Node):
                 
         elif action == "cancel_mission":
             self.mission_manager.cancel_mission()
-            self.follow_waypoints_client._cancel_goal_async(None)
+            if self.active_fw_goal_handle:
+                self.active_fw_goal_handle.cancel_goal_async()
+                self.active_fw_goal_handle = None
             
         elif action == "set_geofence":
             self.geofence_manager.set_geofence(cmd_data.get("polygon", []))
@@ -263,8 +276,24 @@ class ROSBridgeNode(Node):
         goal_msg.pose.pose.orientation.z = sy
         
         self.nav_to_pose_client.wait_for_server(timeout_sec=1.0)
-        self.nav_to_pose_client.send_goal_async(goal_msg)
+        future = self.nav_to_pose_client.send_goal_async(goal_msg)
+        future.add_done_callback(self.nav_goal_response_callback)
         self.get_logger().info(f"Sent nav goal: x={x}, y={y}")
+
+    def nav_goal_response_callback(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().info('Nav Goal rejected')
+            return
+        self.active_nav_goal_handle = goal_handle
+        self.get_logger().info('Nav Goal accepted')
+        self._get_nav_result_future = goal_handle.get_result_async()
+        self._get_nav_result_future.add_done_callback(self.nav_get_result_callback)
+
+    def nav_get_result_callback(self, future):
+        result = future.result().result
+        self.get_logger().info(f'Nav Goal Result: {result}')
+        self.active_nav_goal_handle = None
 
     def send_waypoints(self):
         if not self.mission_manager.start_mission():
@@ -274,9 +303,10 @@ class ROSBridgeNode(Node):
         for wp in self.mission_manager.waypoints:
             pose = PoseStamped()
             pose.header.frame_id = wp.get("frame", "map")
-            pose.pose.position.x = wp["x"]
-            pose.pose.position.y = wp["y"]
-            pose.pose.position.z = wp["z"]
+            pose.header.stamp = self.get_clock().now().to_msg()
+            pose.pose.position.x = float(wp["x"])
+            pose.pose.position.y = float(wp["y"])
+            pose.pose.position.z = float(wp["z"])
             cy = math.cos(wp["yaw"] * 0.5)
             sy = math.sin(wp["yaw"] * 0.5)
             pose.pose.orientation.w = cy
@@ -284,9 +314,20 @@ class ROSBridgeNode(Node):
             goal_msg.poses.append(pose)
             
         self.follow_waypoints_client.wait_for_server(timeout_sec=1.0)
-        future = self.follow_waypoints_client.send_goal_async(goal_msg)
+        future = self.follow_waypoints_client.send_goal_async(goal_msg, feedback_callback=self.fw_feedback_callback)
         future.add_done_callback(self.goal_response_callback)
         self.get_logger().info("Sent waypoints mission")
+
+    def fw_feedback_callback(self, feedback_msg):
+        feedback = feedback_msg.feedback
+        current_wp = feedback.current_waypoint
+        for i, wp in enumerate(self.mission_manager.waypoints):
+            if i < current_wp:
+                wp["status"] = "COMPLETED"
+            elif i == current_wp:
+                wp["status"] = "ACTIVE"
+            else:
+                wp["status"] = "PENDING"
 
     def goal_response_callback(self, future):
         goal_handle = future.result()
@@ -296,6 +337,7 @@ class ROSBridgeNode(Node):
             return
         
         self.get_logger().info('Goal accepted')
+        self.active_fw_goal_handle = goal_handle
         self._get_result_future = goal_handle.get_result_async()
         self._get_result_future.add_done_callback(self.get_result_callback)
 
@@ -305,6 +347,7 @@ class ROSBridgeNode(Node):
         self.mission_manager.state = "COMPLETED"
         for wp in self.mission_manager.waypoints:
             wp["status"] = "COMPLETED"
+        self.active_fw_goal_handle = None
 
     def get_telemetry_json(self):
         state = {

@@ -67,7 +67,7 @@ def generate_launch_description():
             'headless': LaunchConfiguration('headless'),
             'mapping': 'false',
             'patrol': 'false',
-            'nav2': 'false',
+            'launch_nav2': 'false',
             'octomap': 'false',
         }.items(),
     )

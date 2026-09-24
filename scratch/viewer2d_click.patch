@@ -1,0 +1,41 @@
+--- src/niihan_dashboard/web/js/viewer2d.js
++++ src/niihan_dashboard/web/js/viewer2d.js
+@@ -10,6 +10,13 @@
+         this.offsetX = this.canvas.width / 2;
+         this.offsetY = this.canvas.height / 2;
+ 
++        this.onClickCallback = null;
++        this.canvas.addEventListener('click', (e) => this.handleClick(e));
++
+         this.requestRender();
+     }
+ 
++    setOnClickCallback(cb) {
++        this.onClickCallback = cb;
++    }
++
+@@ -52,6 +59,25 @@
+         return {x: px, y: py};
+     }
+ 
++    canvasToWorld(px, py) {
++        let cx = 0; let cy = 0;
++        if (this.robotPose) {
++            cx = this.robotPose.x;
++            cy = this.robotPose.y;
++        }
++        const x = cx + (px - this.canvas.width / 2) / this.scale;
++        const y = cy - (py - this.canvas.height / 2) / this.scale;
++        return {x, y};
++    }
++
++    handleClick(e) {
++        if (!this.onClickCallback) return;
++        const rect = this.canvas.getBoundingClientRect();
++        const px = e.clientX - rect.left;
++        const py = e.clientY - rect.top;
++        const world = this.canvasToWorld(px, py);
++        this.onClickCallback(world.x, world.y, 0);
++    }
++
+     render() {

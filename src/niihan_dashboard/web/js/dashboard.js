@@ -31,10 +31,14 @@ let tempPolygon = [];
 
 // 3D Viewer
 let viewer3d = null;
+let viewer2d = null;
 
 window.addEventListener('load', () => {
     viewer3d = new Viewer3D('three-canvas-container');
     viewer3d.setOnClickCallback(onMapClick);
+    
+    viewer2d = new Viewer2D('map-canvas');
+    viewer2d.setOnClickCallback(onMapClick);
     
     // Tab switching
     const tabBtns = document.querySelectorAll('.tab-btn');
@@ -79,7 +83,7 @@ function connectWebSocket() {
         } else if (data.type === "map") {
             mapData = data;
             document.getElementById('map-status-3d').textContent = `MAP SOURCE: SLAM | STATUS: READY | Res: ${data.resolution}m`;
-            // In a real implementation, convert occupancy grid to 3D mesh or use pointcloud. We will rely on pointcloud.
+            if (viewer2d) viewer2d.updateMap(mapData);
         } else if (data.type === "pointcloud") {
             if (viewer3d) viewer3d.updatePointCloud(data.data);
         } else if (data.type === "camera") {
@@ -134,12 +138,14 @@ function updateTelemetry(data) {
     
     robotPose = data.pose;
     if (viewer3d) viewer3d.updateRobotPose(robotPose.x, robotPose.y, robotPose.z, robotPose.yaw);
+    if (viewer2d) viewer2d.updateRobotPose(robotPose.x, robotPose.y, robotPose.yaw);
     
     // Mission
     const m = data.mission;
     missionState.textContent = m.state;
     waypoints = m.waypoints;
     if (viewer3d) viewer3d.updateWaypoints(waypoints);
+    if (viewer2d) viewer2d.updateWaypoints(waypoints);
     renderWaypointTable();
     
     // Geofence
@@ -148,10 +154,12 @@ function updateTelemetry(data) {
         gfState.textContent = `ARMED (${gf.vertices} pts)`;
         geofencePolygon = gf.polygon;
         if (viewer3d) viewer3d.updateGeofence(geofencePolygon);
+        if (viewer2d) viewer2d.updateGeofence(geofencePolygon);
     } else {
         gfState.textContent = "DISABLED";
         if (interactionMode !== "CREATE_GF") {
             if (viewer3d) viewer3d.updateGeofence([]);
+            if (viewer2d) viewer2d.updateGeofence([]);
         }
     }
 }
