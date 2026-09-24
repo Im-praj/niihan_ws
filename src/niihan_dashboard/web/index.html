@@ -21,7 +21,7 @@
         <div class="top-stats">
             <span id="conn-status" class="status-badge error">DISCONNECTED</span>
             <span id="mode-status" class="status-badge warning">MANUAL</span>
-            <span id="loc-status" class="status-badge info">LOC: RTAB-MAP</span>
+            <span id="loc-status" class="status-badge info">LOC: SLAM</span>
             <span id="nav-status" class="status-badge info">NAV2: CHECKING</span>
             <span id="batt-status" class="status-badge ok">BATT: 98%</span>
             <span id="vel-status" class="status-badge ok">VEL: 0.0 m/s</span>
@@ -34,14 +34,14 @@
         <!-- Center/Left: 3D Map View -->
         <div class="view-panel">
             <div class="view-tabs">
-                <button class="tab-btn active" data-target="view-3d">3D RTAB-MAP</button>
+                <button class="tab-btn active" data-target="view-3d">3D SLAM</button>
                 <button class="tab-btn" data-target="view-2d">2D NAV MAP</button>
             </div>
             
             <div class="view-container active" id="view-3d">
                 <div id="three-canvas-container"></div>
                 <div class="view-overlay">
-                    <span id="map-status-3d">MAP SOURCE: RTAB-MAP | STATUS: WAITING</span>
+                    <span id="map-status-3d">MAP SOURCE: SLAM | STATUS: WAITING</span>
                 </div>
             </div>
 

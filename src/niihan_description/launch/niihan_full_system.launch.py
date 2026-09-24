@@ -18,7 +18,7 @@ def generate_launch_description():
             'mapping': 'true',      # Enable mapping/slam by default
             'launch_nav2': 'true',  # Enable Nav2 by default
             'use_sim_time': 'true', # Enable simulation time
-            'patrol': 'true',       # Enable autonomous patrol logic
+            'patrol': 'false',       # Disable autonomous patrol logic to allow manual/dashboard control
         }.items()
     )
 

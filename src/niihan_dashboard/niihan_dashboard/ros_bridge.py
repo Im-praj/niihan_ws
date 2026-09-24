@@ -46,7 +46,7 @@ class ROSBridgeNode(Node):
             "pose": {"x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0},
             "velocity": {"linear_x": 0.0, "linear_y": 0.0, "angular_z": 0.0},
             "imu": {"ax": 0.0, "ay": 0.0, "az": 0.0, "wx": 0.0, "wy": 0.0, "wz": 0.0},
-            "localization": {"source": "RTAB-MAP", "health": "OK", "confidence": 1.0}
+            "localization": {"source": "SLAM_TOOLBOX", "health": "OK", "confidence": 1.0}
         }
         
         self.map_data = None
@@ -67,8 +67,8 @@ class ROSBridgeNode(Node):
         map_qos = QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
         self.create_subscription(OccupancyGrid, '/map', self.map_callback, map_qos)
         
-        # RTAB-Map Point Cloud
-        self.create_subscription(PointCloud2, '/vortex/point_cloud_map', self.pointcloud_callback, map_qos)
+        # RTAB-Map Point Cloud (using default QoS to match publisher VOLATILE)
+        self.create_subscription(PointCloud2, '/vortex/point_cloud_map', self.pointcloud_callback, 10)
         
         self.create_subscription(Image, '/niihan/sensors/panoramic/front/image_raw', self.image_callback, 10)
         
@@ -163,6 +163,14 @@ class ROSBridgeNode(Node):
                 self.path_history.pop(0)
 
     def safety_loop(self):
+        if not self.geofence_manager.is_robot_inside(self.telemetry["pose"]["x"], self.telemetry["pose"]["y"]):
+            if not self.safety_manager.estop_active:
+                self.safety_manager.trigger_estop()
+                self.get_logger().error("GEOFENCE BREACH: E-STOP TRIGGERED")
+                self.mission_manager.cancel_mission()
+                self.nav_to_pose_client._cancel_goal_async(None)
+                self.follow_waypoints_client._cancel_goal_async(None)
+
         if self.safety_manager.mode == "MANUAL" and not self.safety_manager.can_move(self.telemetry["pose"]["x"], self.telemetry["pose"]["y"]):
             msg = Twist()
             self.cmd_vel_pub.publish(msg)

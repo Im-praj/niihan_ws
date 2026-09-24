@@ -1,4 +1,4 @@
-const ws = new WebSocket(`ws://${window.location.hostname}:8081`);
+let ws = null;
 let isConnected = false;
 let mode = "MANUAL";
 let estopActive = false;
@@ -52,40 +52,46 @@ window.addEventListener('load', () => {
             }
         });
     });
+    connectWebSocket();
 });
 
-ws.onopen = () => {
-    isConnected = true;
-    elConn.textContent = "CONNECTED";
-    elConn.className = "status-badge ok";
-};
+function connectWebSocket() {
+    ws = new WebSocket(`ws://${window.location.hostname}:8081`);
 
-ws.onclose = () => {
-    isConnected = false;
-    elConn.textContent = "DISCONNECTED";
-    elConn.className = "status-badge error";
-};
+    ws.onopen = () => {
+        isConnected = true;
+        elConn.textContent = "CONNECTED";
+        elConn.className = "status-badge ok";
+    };
 
-ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    
-    if (data.type === "telemetry") {
-        updateTelemetry(data);
-    } else if (data.type === "map") {
-        mapData = data;
-        document.getElementById('map-status-3d').textContent = `MAP SOURCE: RTAB-MAP | STATUS: READY | Res: ${data.resolution}m`;
-        // In a real implementation, convert occupancy grid to 3D mesh or use pointcloud. We will rely on pointcloud.
-    } else if (data.type === "pointcloud") {
-        if (viewer3d) viewer3d.updatePointCloud(data.data);
-    } else if (data.type === "camera") {
-        camStream.src = "data:image/jpeg;base64," + data.image;
-    } else if (data.type === "mission_write_response") {
-        alert(data.message);
-        if (data.success) {
-            document.getElementById('btn-start-mission').disabled = false;
+    ws.onclose = () => {
+        isConnected = false;
+        elConn.textContent = "DISCONNECTED";
+        elConn.className = "status-badge error";
+        setTimeout(connectWebSocket, 2000);
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === "telemetry") {
+            updateTelemetry(data);
+        } else if (data.type === "map") {
+            mapData = data;
+            document.getElementById('map-status-3d').textContent = `MAP SOURCE: SLAM | STATUS: READY | Res: ${data.resolution}m`;
+            // In a real implementation, convert occupancy grid to 3D mesh or use pointcloud. We will rely on pointcloud.
+        } else if (data.type === "pointcloud") {
+            if (viewer3d) viewer3d.updatePointCloud(data.data);
+        } else if (data.type === "camera") {
+            camStream.src = "data:image/jpeg;base64," + data.image;
+        } else if (data.type === "mission_write_response") {
+            alert(data.message);
+            if (data.success) {
+                document.getElementById('btn-start-mission').disabled = false;
+            }
         }
-    }
-};
+    };
+}
 
 function updateTelemetry(data) {
     // Pose
