@@ -8,4 +8,3 @@ teleop_mapping_keyboard = niihan_description.teleop_mapping_keyboard:main
 teleop_mapping_terminal = niihan_description.teleop_mapping_terminal:main
 vortex_3d_mapper = niihan_description.vortex_3d_mapper:main
 waypoint_patrol = niihan_description.waypoint_patrol:waypoint_patrol_main
-

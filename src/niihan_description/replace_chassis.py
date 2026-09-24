@@ -1,89 +1,12 @@
-<?xml version="1.0"?>
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+import re
 
-  <!-- ============================================================
-       NIIHAN chassis, base_footprint/base_link and 4x wheel links.
-       Uses properties from niihan_properties.xacro and inertia
-       macros from niihan_macros.xacro. All dimensions configurable.
-  ============================================================ -->
+with open('urdf/niihan_chassis.xacro', 'r') as f:
+    content = f.read()
 
-  <link name="base_footprint"/>
-
-  <joint name="base_footprint_joint" type="fixed">
-    <parent link="base_footprint"/>
-    <child link="base_link"/>
-    <origin xyz="0 0 ${wheel_radius}" rpy="0 0 0"/>
-  </joint>
-
-  <link name="base_link">
-    <visual>
-      <origin xyz="0 0 ${ground_clearance/2 - 0.025}" rpy="0 0 0"/>
-      <geometry>
-        <box size="${chassis_length*0.88} ${chassis_width*0.82} ${chassis_height*0.72}"/>
-      </geometry>
-      <material name="niihan_chassis_dark">
-        <color rgba="0.07 0.08 0.09 1.0"/>
-      </material>
-    </visual>
-    <collision>
-      <origin xyz="0 0 ${ground_clearance/2 - 0.025}" rpy="0 0 0"/>
-      <geometry>
-        <box size="${chassis_length*0.88} ${chassis_width*0.82} ${chassis_height*0.72}"/>
-      </geometry>
-    </collision>
-    <xacro:box_inertia mass="${chassis_mass}" x="${chassis_length}" y="${chassis_width}" z="${chassis_height}" ox="0" oy="0" oz="${ground_clearance/2 - 0.025}"/>
-  </link>
-
-  <gazebo reference="base_link">
-    <material>Gazebo/DarkGrey</material>
-  </gazebo>
-
-  <link name="upper_deck">
-    <visual>
-      <origin xyz="0.02 0 0" rpy="0 0 0"/>
-      <geometry><box size="0.48 0.34 0.055"/></geometry>
-      <material name="upper_deck_black"><color rgba="0.025 0.03 0.035 1.0"/></material>
-    </visual>
-    <collision>
-      <origin xyz="0.02 0 0" rpy="0 0 0"/>
-      <geometry><box size="0.48 0.34 0.055"/></geometry>
-    </collision>
-    <xacro:box_inertia mass="1.0" x="0.48" y="0.34" z="0.055"/>
-  </link>
-  <joint name="upper_deck_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="upper_deck"/>
-    <origin xyz="0.02 0 ${ground_clearance + 0.035}" rpy="0 0 0"/>
-  </joint>
-
-  <!-- 40x40mm aluminium extrusion frame rails (collision-relevant structural detail) -->
-  <xacro:macro name="extrusion_rail" params="name x y z len_axis">
-    <link name="${name}">
-      <visual>
-        <geometry>
-          <box size="${len_axis=='x' and chassis_length*0.9 or extrusion_size} ${len_axis=='y' and chassis_width*0.9 or extrusion_size} ${extrusion_size}"/>
-        </geometry>
-        <material name="${name}_extrusion_silver">
-          <color rgba="0.65 0.65 0.68 1.0"/>
-        </material>
-      </visual>
-      <collision>
-        <geometry>
-          <box size="${len_axis=='x' and chassis_length*0.9 or extrusion_size} ${len_axis=='y' and chassis_width*0.9 or extrusion_size} ${extrusion_size}"/>
-        </geometry>
-      </collision>
-      <xacro:box_inertia mass="0.3" x="${extrusion_size}" y="${extrusion_size}" z="${extrusion_size}"/>
-    </link>
-    <joint name="${name}_joint" type="fixed">
-      <parent link="base_link"/>
-      <child link="${name}"/>
-      <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
-    </joint>
-  </xacro:macro>
-
-  <xacro:extrusion_rail name="frame_rail_front" x="0" y="0" z="${ground_clearance + 0.01}" len_axis="x"/>
-
-  <xacro:macro name="niihan_suspension" params="prefix side_reflect front_reflect x_off y_off">
+# Replace the rocker macro and instances, and wheels
+# We'll use regex to find from <xacro:macro name="niihan_rocker" to the end of the file (before </robot>)
+pattern = r'<xacro:macro name="niihan_rocker".*?</robot>'
+replacement = """<xacro:macro name="niihan_suspension" params="prefix side_reflect front_reflect x_off y_off">
     <link name="${prefix}_arm">
       <visual>
         <origin xyz="${-front_reflect * suspension_arm_length/2} 0 0" rpy="0 0 0"/>
@@ -226,4 +149,8 @@
   </joint>
 
 </robot>
+"""
 
+new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+with open('urdf/niihan_chassis.xacro', 'w') as f:
+    f.write(new_content)

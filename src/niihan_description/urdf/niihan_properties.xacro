@@ -10,30 +10,33 @@
 
   <!-- Overall envelope -->
   <xacro:property name="chassis_length" value="0.700"/> <!-- 700mm -->
-  <xacro:property name="chassis_width" value="0.500"/> <!-- 500mm -->
+  <xacro:property name="chassis_width" value="0.500"/> <!-- 500mm envelope -->
   <xacro:property name="chassis_height" value="0.220"/>
-  <xacro:property name="ground_clearance" value="0.120"/> <!-- 120mm -->
-  <xacro:property name="wheelbase" value="0.400"/> <!-- 400mm -->
-  <xacro:property name="track_width" value="0.430"/> <!-- 430mm -->
+  <xacro:property name="ground_clearance" value="0.200"/> <!-- 200mm -->
+  <xacro:property name="wheelbase" value="0.500"/> <!-- 500mm -->
+  <xacro:property name="track_width" value="0.525"/> <!-- 525mm -->
+
+  <!-- Suspension -->
+  <xacro:property name="suspension_arm_length" value="0.150"/>
+  <xacro:property name="suspension_arm_width" value="0.040"/>
+  <xacro:property name="suspension_arm_mass" value="1.0"/>
 
   <!-- Wheels -->
-  <xacro:property name="wheel_diameter" value="0.280"/> <!-- 280mm -->
+  <xacro:property name="wheel_diameter" value="0.250"/> <!-- Placeholder: confirm with real measurement before build -->
   <xacro:property name="wheel_radius" value="${wheel_diameter/2.0}"/>
-  <xacro:property name="wheel_width" value="0.070"/> <!-- 70mm -->
+  <xacro:property name="wheel_width" value="0.080"/> <!-- Placeholder: confirm with real measurement before build -->
   <xacro:property name="wheel_mass" value="3.5"/>
   <xacro:property name="wheel_effort" value="30.0"/> <!-- N*m, per-wheel drive motor effort limit, placeholder pending motor sign-off -->
   <xacro:property name="wheel_velocity" value="10.0"/> <!-- rad/s, per-wheel max angular velocity, placeholder pending motor sign-off -->
 
   <!-- Chassis mass distribution -->
-  <xacro:property name="chassis_mass" value="28.0"/>
-  <xacro:property name="battery_mass" value="8.0"/>
-  <xacro:property name="battery_size_x" value="0.220"/>
-  <xacro:property name="battery_size_y" value="0.300"/>
-  <xacro:property name="battery_size_z" value="0.090"/>
-  <xacro:property name="compute_mass" value="2.0"/>
-  <xacro:property name="compute_size_x" value="0.180"/>
-  <xacro:property name="compute_size_y" value="0.140"/>
-  <xacro:property name="compute_size_z" value="0.060"/>
+  <xacro:property name="chassis_mass" value="10.0"/> <!-- Placeholder residual mass, adjusted for large items below -->
+  <xacro:property name="battery_mass" value="14.0"/> <!-- ~13-15kg for 1280Wh LiFePO4 pack -->
+  <xacro:property name="battery_size_x" value="0.260"/>
+  <xacro:property name="battery_size_y" value="0.165"/>
+  <xacro:property name="battery_size_z" value="0.210"/>
+  <xacro:property name="front_compute_mass" value="1.5"/> <!-- Jetson, Pi, MCU, IMU, modems -->
+  <xacro:property name="power_control_mass" value="2.0"/> <!-- ZLAC drivers, PDU, DC/DC -->
 
   <!-- Frame -->
   <xacro:property name="extrusion_size" value="0.040"/> <!-- 40x40mm aluminium extrusion -->

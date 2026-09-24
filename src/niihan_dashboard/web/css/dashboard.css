@@ -401,3 +401,33 @@ body {
     border-radius: 5px;
     text-align: center;
 }
+
+/* Landscape orientation overlay for mobile */
+.landscape-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.95);
+    z-index: 9999;
+    color: white;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+}
+
+.landscape-overlay h2 {
+    color: var(--accent-color);
+    margin-bottom: 10px;
+}
+
+@media screen and (max-width: 900px) and (orientation: portrait) {
+    .landscape-overlay {
+        display: flex;
+    }
+}
+

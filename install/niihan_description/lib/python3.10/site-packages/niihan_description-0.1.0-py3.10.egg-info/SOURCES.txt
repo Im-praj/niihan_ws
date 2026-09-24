@@ -19,7 +19,6 @@ launch/niihan_description.launch.py
 launch/niihan_full_system.launch.py
 launch/niihan_gazebo.launch.py
 launch/niihan_mapping.launch.py
-launch/teleop_mapping.launch.py
 models/niihan_environment/model.config
 models/niihan_environment/model.sdf
 models/niihan_environment/meshes/construction_site_m1.glb

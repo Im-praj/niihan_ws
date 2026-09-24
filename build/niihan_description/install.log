@@ -26,7 +26,6 @@
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch/niihan_mapping.launch.py
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch/niihan_gazebo.launch.py
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch/mapping.launch.py
-/home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch/teleop_mapping.launch.py
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch/niihan_full_system.launch.py
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/launch/gazebo.launch.py
 /home/praj/niihan_ws/install/niihan_description/share/niihan_description/config/scenarios.yaml

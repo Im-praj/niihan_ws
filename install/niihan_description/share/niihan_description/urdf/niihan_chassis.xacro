@@ -83,113 +83,48 @@
 
   <xacro:extrusion_rail name="frame_rail_front" x="0" y="0" z="${ground_clearance + 0.01}" len_axis="x"/>
 
-  <xacro:macro name="niihan_rocker" params="side y_off">
-    <link name="${side}_rocker">
-      <!-- Layered beams approximate the sculpted rocker plate in the reference. -->
+  <xacro:macro name="niihan_suspension" params="prefix side_reflect front_reflect x_off y_off">
+    <link name="${prefix}_arm">
       <visual>
-        <origin xyz="${wheelbase/2} 0 0" rpy="0 0 0"/>
+        <origin xyz="${-front_reflect * suspension_arm_length/2} 0 0" rpy="0 0 0"/>
         <geometry>
-          <box size="${wheelbase + 0.10} 0.075 0.075"/>
+          <box size="${suspension_arm_length} ${suspension_arm_width} ${suspension_arm_width}"/>
         </geometry>
-        <material name="${side}_rocker_metal">
-          <color rgba="0.62 0.63 0.65 1.0"/>
-        </material>
+        <material name="${prefix}_metal"><color rgba="0.6 0.6 0.6 1.0"/></material>
       </visual>
       <collision>
-        <origin xyz="${wheelbase/2} 0 0" rpy="0 0 0"/>
+        <origin xyz="${-front_reflect * suspension_arm_length/2} 0 0" rpy="0 0 0"/>
         <geometry>
-          <box size="${wheelbase + 0.10} 0.075 0.075"/>
+          <box size="${suspension_arm_length} ${suspension_arm_width} ${suspension_arm_width}"/>
         </geometry>
       </collision>
-      <visual>
-        <origin xyz="${wheelbase/2 + 0.12} 0 0.055" rpy="0 -0.48 0"/>
-        <geometry>
-          <box size="0.25 0.075 0.075"/>
-        </geometry>
-        <material name="${side}_rocker_upper_front">
-          <color rgba="0.78 0.79 0.80 1.0"/>
-        </material>
-      </visual>
-      <collision>
-        <origin xyz="${wheelbase/2 + 0.12} 0 0.055" rpy="0 -0.48 0"/>
-        <geometry>
-          <box size="0.25 0.075 0.075"/>
-        </geometry>
-      </collision>
-      <visual>
-        <origin xyz="${wheelbase/2} 0 -0.045" rpy="0 0 0"/>
-        <geometry><box size="${wheelbase + 0.04} 0.085 0.06"/></geometry>
-        <material name="${side}_rocker_lower_dark"><color rgba="0.08 0.09 0.10 1.0"/></material>
-      </visual>
-      <collision>
-        <origin xyz="${wheelbase/2} 0 -0.045" rpy="0 0 0"/>
-        <geometry><box size="${wheelbase + 0.04} 0.085 0.06"/></geometry>
-      </collision>
-      <visual>
-        <origin xyz="${wheelbase/2 - 0.12} 0 0.055" rpy="0 0.48 0"/>
-        <geometry>
-          <box size="0.25 0.075 0.075"/>
-        </geometry>
-        <material name="${side}_rocker_upper_rear">
-          <color rgba="0.48 0.49 0.51 1.0"/>
-        </material>
-      </visual>
-      <collision>
-        <origin xyz="${wheelbase/2 - 0.12} 0 0.055" rpy="0 0.48 0"/>
-        <geometry>
-          <box size="0.25 0.075 0.075"/>
-        </geometry>
-      </collision>
-      <visual>
-        <origin xyz="${wheelbase/2} 0 0.035" rpy="${pi/2} 0 0"/>
-        <geometry>
-          <cylinder radius="0.075" length="0.085"/>
-        </geometry>
-        <material name="${side}_rocker_pivot_outer">
-          <color rgba="0.72 0.73 0.74 1.0"/>
-        </material>
-      </visual>
-      <visual>
-        <origin xyz="${wheelbase/2} 0 0.035" rpy="${pi/2} 0 0"/>
-        <geometry>
-          <cylinder radius="0.043" length="0.09"/>
-        </geometry>
-        <material name="${side}_rocker_pivot_inner">
-          <color rgba="0.12 0.13 0.14 1.0"/>
-        </material>
-      </visual>
-      <xacro:box_inertia mass="1.5" x="${wheelbase + 0.08}" y="0.06" z="0.06"/>
+      <xacro:box_inertia mass="${suspension_arm_mass}" x="${suspension_arm_length}" y="${suspension_arm_width}" z="${suspension_arm_width}" ox="${-front_reflect * suspension_arm_length/2}" oy="0" oz="0"/>
     </link>
-    <joint name="${side}_rocker_joint" type="revolute">
+    <joint name="${prefix}_suspension_joint" type="revolute">
       <parent link="base_link"/>
-      <child link="${side}_rocker"/>
-      <origin xyz="${-wheelbase/2} ${y_off} 0" rpy="0 0 0"/>
+      <child link="${prefix}_arm"/>
+      <origin xyz="${x_off + front_reflect * suspension_arm_length} ${y_off} 0" rpy="0 0 0"/>
       <axis xyz="0 1 0"/>
-      <limit lower="-0.15" upper="0.15" effort="80.0" velocity="2.0"/>
-      <dynamics damping="2.0" friction="0.5" spring_stiffness="150.0" spring_reference="0.0"/>
+      <limit lower="-0.4" upper="0.4" effort="100.0" velocity="2.0"/>
+      <dynamics damping="50.0" friction="0.5" spring_stiffness="2000.0" spring_reference="0.0"/>
     </joint>
   </xacro:macro>
 
-  <xacro:niihan_rocker side="left" y_off="${track_width/2}"/>
-  <xacro:niihan_rocker side="right" y_off="${-track_width/2}"/>
+  <xacro:niihan_suspension prefix="front_left" side_reflect="1" front_reflect="1" x_off="${wheelbase/2}" y_off="${track_width/2}"/>
+  <xacro:niihan_suspension prefix="front_right" side_reflect="-1" front_reflect="1" x_off="${wheelbase/2}" y_off="${-track_width/2}"/>
+  <xacro:niihan_suspension prefix="rear_left" side_reflect="1" front_reflect="-1" x_off="${-wheelbase/2}" y_off="${track_width/2}"/>
+  <xacro:niihan_suspension prefix="rear_right" side_reflect="-1" front_reflect="-1" x_off="${-wheelbase/2}" y_off="${-track_width/2}"/>
 
-  <!-- Wheel macro: side (left/right), pos (front/rear), x/y offsets and mirror sign -->
   <xacro:macro name="niihan_wheel" params="name parent x_off y_off hub_y hub_offset mu1:=1.0 mu2:=1.0">
     <link name="${name}">
       <visual>
         <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
-        <geometry>
-          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
-        </geometry>
-        <material name="${name}_rubber_black">
-          <color rgba="0.05 0.05 0.05 1.0"/>
-        </material>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+        <material name="${name}_rubber_black"><color rgba="0.05 0.05 0.05 1.0"/></material>
       </visual>
       <collision>
         <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
-        <geometry>
-          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
-        </geometry>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
       </collision>
       <visual>
         <origin xyz="0 ${hub_y} 0" rpy="${pi/2} 0 0"/>
@@ -227,12 +162,68 @@
     </gazebo>
   </xacro:macro>
 
-  <!-- Front wheels (passive) on suspension rockers. Low lateral friction for skid steering. -->
-  <xacro:niihan_wheel name="front_left_wheel"  parent="left_rocker"  x_off="${wheelbase}" y_off="0" hub_y="${wheel_width/2}"  hub_offset="0.01" mu1="0.8" mu2="0.1"/>
-  <xacro:niihan_wheel name="front_right_wheel" parent="right_rocker" x_off="${wheelbase}" y_off="0" hub_y="${-wheel_width/2}" hub_offset="-0.01" mu1="0.8" mu2="0.1"/>
+  <xacro:niihan_wheel name="front_left_wheel"  parent="front_left_arm"  x_off="${-suspension_arm_length}" y_off="0" hub_y="${wheel_width/2}"  hub_offset="0.01" mu1="0.8" mu2="0.8"/>
+  <xacro:niihan_wheel name="front_right_wheel" parent="front_right_arm" x_off="${-suspension_arm_length}" y_off="0" hub_y="${-wheel_width/2}" hub_offset="-0.01" mu1="0.8" mu2="0.8"/>
+  <xacro:niihan_wheel name="rear_left_wheel"   parent="rear_left_arm"   x_off="${suspension_arm_length}"  y_off="0" hub_y="${wheel_width/2}"  hub_offset="0.01" mu1="0.8" mu2="0.8"/>
+  <xacro:niihan_wheel name="rear_right_wheel"  parent="rear_right_arm"  x_off="${suspension_arm_length}"  y_off="0" hub_y="${-wheel_width/2}" hub_offset="-0.01" mu1="0.8" mu2="0.8"/>
 
-  <!-- Rear wheels (driven) on base_link. High friction for drive traction. -->
-  <xacro:niihan_wheel name="rear_left_wheel"   parent="base_link"  x_off="${-wheelbase/2}" y_off="${track_width/2}"  hub_y="${wheel_width/2}"  hub_offset="0.01" mu1="0.8" mu2="0.8"/>
-  <xacro:niihan_wheel name="rear_right_wheel"  parent="base_link"  x_off="${-wheelbase/2}" y_off="${-track_width/2}" hub_y="${-wheel_width/2}" hub_offset="-0.01" mu1="0.8" mu2="0.8"/>
+  <link name="front_compute_box">
+    <visual><geometry><box size="0.12 0.10 0.05"/></geometry><material name="compute_box_mat"><color rgba="0.2 0.2 0.2 1.0"/></material></visual>
+    <xacro:box_inertia mass="${front_compute_mass}" x="0.12" y="0.10" z="0.05"/>
+  </link>
+  <joint name="front_compute_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="front_compute_box"/>
+    <origin xyz="${chassis_length/2 - 0.1} 0 ${chassis_height/2}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="power_control_box">
+    <visual><geometry><box size="0.15 0.12 0.06"/></geometry><material name="power_box_mat"><color rgba="0.3 0.3 0.3 1.0"/></material></visual>
+    <xacro:box_inertia mass="${power_control_mass}" x="0.15" y="0.12" z="0.06"/>
+  </link>
+  <joint name="power_control_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="power_control_box"/>
+    <origin xyz="-0.05 0 ${chassis_height/2}" rpy="0 0 0"/>
+  </joint>
+  
+  <link name="estop_button">
+    <visual><geometry><cylinder radius="0.02" length="0.02"/></geometry><material name="estop_red"><color rgba="0.8 0.1 0.1 1.0"/></material></visual>
+  </link>
+  <joint name="estop_joint" type="fixed">
+    <parent link="power_control_box"/>
+    <child link="estop_button"/>
+    <origin xyz="0 0 0.04" rpy="0 0 0"/>
+  </joint>
+
+  <link name="battery_box">
+    <visual><geometry><box size="${battery_size_x} ${battery_size_y} ${battery_size_z}"/></geometry><material name="battery_mat"><color rgba="0.1 0.1 0.1 1.0"/></material></visual>
+    <xacro:box_inertia mass="${battery_mass}" x="${battery_size_x}" y="${battery_size_y}" z="${battery_size_z}"/>
+  </link>
+  <joint name="battery_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="battery_box"/>
+    <!-- Place battery low and rear -->
+    <origin xyz="-0.15 0 -0.05" rpy="0 0 0"/>
+  </joint>
+
+  <link name="access_panel">
+    <visual><geometry><box size="0.30 0.20 0.01"/></geometry><material name="panel_mat"><color rgba="0.4 0.4 0.4 1.0"/></material></visual>
+  </link>
+  <joint name="access_panel_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="access_panel"/>
+    <origin xyz="0 0 ${chassis_height/2 + 0.005}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="rear_dock_contacts">
+    <visual><geometry><box size="0.02 0.1 0.02"/></geometry><material name="contacts_mat"><color rgba="0.8 0.8 0.1 1.0"/></material></visual>
+  </link>
+  <joint name="rear_dock_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="rear_dock_contacts"/>
+    <origin xyz="${-chassis_length/2} 0 ${-chassis_height/2 + 0.02}" rpy="0 0 0"/>
+  </joint>
 
 </robot>
+

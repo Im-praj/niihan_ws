@@ -156,6 +156,7 @@ class ROSBridgeNode(Node):
             self.get_logger().error(f"Image conversion error: {e}")
 
     def update_path_history(self):
+        self.check_nav2()
         if self.telemetry["pose"]["x"] != 0.0 or self.telemetry["pose"]["y"] != 0.0:
             self.path_history.append({"x": self.telemetry["pose"]["x"], "y": self.telemetry["pose"]["y"]})
             if len(self.path_history) > 300:
@@ -298,7 +299,6 @@ class ROSBridgeNode(Node):
             wp["status"] = "COMPLETED"
 
     def get_telemetry_json(self):
-        self.check_nav2()
         state = {
             "type": "telemetry",
             "timestamp": self.get_clock().now().nanoseconds / 1e9,

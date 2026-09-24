@@ -55,6 +55,10 @@
       <joint_name>rear_right_wheel_joint</joint_name>
       <joint_name>ptz_pan_joint</joint_name>
       <joint_name>ptz_tilt_joint</joint_name>
+      <joint_name>front_left_suspension_joint</joint_name>
+      <joint_name>front_right_suspension_joint</joint_name>
+      <joint_name>rear_left_suspension_joint</joint_name>
+      <joint_name>rear_right_suspension_joint</joint_name>
     </plugin>
   </gazebo>
 

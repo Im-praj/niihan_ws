@@ -187,6 +187,14 @@ def generate_launch_description():
             '/niihan/proximity/rear_range@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/niihan/bumper/contact@ros_gz_interfaces/msg/Contacts[gz.msgs.Contacts',
 
+
+            # Rear Cluster (Unitree & Orbbec)
+            '/niihan/sensors/unitree_lidar@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/niihan/sensors/unitree_lidar/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
+            '/niihan/sensors/orbbec/color/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/niihan/sensors/orbbec/color/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
+            '/niihan/sensors/orbbec/depth/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/niihan/sensors/orbbec/depth/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
             # D435i
             '/niihan/sensors/d435i/color/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
             '/niihan/sensors/d435i/color/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
