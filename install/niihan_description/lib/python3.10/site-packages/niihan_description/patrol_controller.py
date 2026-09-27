@@ -585,9 +585,8 @@ class PatrolController(Node):
         if not goal_handle.accepted:
             self.get_logger().warn('Nav2 rejected the goal; waiting for a map update.')
             self.goal_handle = None
-            return
-        self.goal_handle = goal_handle
-        goal_handle.get_result_async().add_done_callback(self.result_callback)
+            self.goal_map_version = -1   # <-- don't wait forever for an unrelated map update
+        return
 
     def result_callback(self, future):
         status = future.result().status

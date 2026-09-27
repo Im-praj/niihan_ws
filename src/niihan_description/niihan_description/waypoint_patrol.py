@@ -498,7 +498,7 @@ class WaypointPatrol(Node):
             self._publish_status(f'waiting at {label}')
             self._wait_timer = self.create_timer(
                 self._wait_dur, self._wait_done, callback_group=None)
-        elif status == 6:  # CANCELED
+        elif status == 5:  # CANCELED
             self.get_logger().warn(f'Goal for waypoint {label} was canceled.')
             if self._state == 'navigating':
                 self._state = 'patrolling'

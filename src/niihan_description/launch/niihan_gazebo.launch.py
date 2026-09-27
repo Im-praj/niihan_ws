@@ -148,9 +148,9 @@ def generate_launch_description():
         arguments=[
             '-name', 'niihan',
             '-topic', '/robot_description',
-            '-x', '-1.0',
+            '-x', '-8.0',
             '-y', '0.0',
-            '-z', '0.808',
+            '-z', '0.02',
             '-Y', '0.0',
         ],
         output='screen',
