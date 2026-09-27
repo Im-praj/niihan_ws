@@ -187,7 +187,9 @@ def generate_launch_description():
     nav2_params_file = os.path.join(pkg_description, 'config', 'nav2_params.yaml')
     nav2_launch = GroupAction(
         actions=[
-            SetRemap(src='/cmd_vel', dst='/niihan/cmd_vel'),
+            # Preserve the controller -> cmd_vel_nav -> smoother pipeline.
+            SetRemap(src='velocity_smoother:cmd_vel_smoothed', dst='/niihan/cmd_vel'),
+            SetRemap(src='behavior_server:cmd_vel', dst='/niihan/cmd_vel'),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
                     PathJoinSubstitution([

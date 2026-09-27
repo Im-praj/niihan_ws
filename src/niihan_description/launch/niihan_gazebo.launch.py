@@ -372,7 +372,10 @@ def generate_launch_description():
     nav2_group = GroupAction(
         condition=IfCondition(LaunchConfiguration('launch_nav2')),
         actions=[
-            SetRemap(src='/cmd_vel', dst='/niihan/cmd_vel'),
+            # A global /cmd_vel remap overrides Nav2's cmd_vel_nav input,
+            # feeding the velocity smoother its own output. Scope by node.
+            SetRemap(src='velocity_smoother:cmd_vel_smoothed', dst='/niihan/cmd_vel'),
+            SetRemap(src='behavior_server:cmd_vel', dst='/niihan/cmd_vel'),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
                     PathJoinSubstitution([

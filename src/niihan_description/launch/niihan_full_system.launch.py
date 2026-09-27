@@ -26,7 +26,8 @@ def generate_launch_description():
     dashboard_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(niihan_dashboard_dir, 'launch', 'dashboard.launch.py')
-        )
+        ),
+        launch_arguments={'use_sim_time': 'true'}.items(),
     )
 
     return LaunchDescription([
