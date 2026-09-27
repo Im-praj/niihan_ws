@@ -10,7 +10,8 @@ def generate_launch_description():
         package='niihan_dashboard',
         executable='dashboard_node',
         name='niihan_dashboard_node',
-        output='screen'
+        output='screen',
+        parameters=[{'use_sim_time': True}]
     )
 
     return LaunchDescription([

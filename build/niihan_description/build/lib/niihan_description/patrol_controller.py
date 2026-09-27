@@ -586,7 +586,16 @@ class PatrolController(Node):
             self.get_logger().warn('Nav2 rejected the goal; waiting for a map update.')
             self.goal_handle = None
             self.goal_map_version = -1   # <-- don't wait forever for an unrelated map update
-        return
+            return
+        # BUGFIX: previously the accepted goal handle was never stored and
+        # get_result_async() was never wired up. That left self.goal_handle
+        # permanently None, so decision_callback()'s "goal already active?"
+        # guard never held, and result_callback() (which advances
+        # waypoint_idx) was dead code -- the patrol never advanced past the
+        # first waypoint and kept re-sending/preempting the same goal on
+        # every /map update.
+        self.goal_handle = goal_handle
+        goal_handle.get_result_async().add_done_callback(self.result_callback)
 
     def result_callback(self, future):
         status = future.result().status

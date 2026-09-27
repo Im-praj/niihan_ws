@@ -6,6 +6,8 @@ from sensor_msgs.msg import Imu, Image, PointCloud2
 from nav2_msgs.action import NavigateToPose, FollowWaypoints
 from rclpy.action import ActionClient
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy
+from action_msgs.msg import GoalStatus
+from tf2_ros import Buffer, TransformListener
 import math
 import json
 import base64
@@ -58,7 +60,17 @@ class ROSBridgeNode(Node):
         self.active_fw_goal_handle = None
         
         self.last_pc_time = 0.0
-        
+
+        # BUGFIX: geofence + mission waypoints are defined in the 'map'
+        # frame, but pose used to come straight from raw /odom, which is
+        # uncorrected dead-reckoning that drifts away from 'map' as
+        # slam_toolbox updates the map->odom transform. That let the robot
+        # actually cross the geofence in the map frame while telemetry (in
+        # the odom frame) still looked "inside". We now look up the real
+        # map->base_footprint transform instead (see _update_pose_from_tf).
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
         # Publishers
         self.cmd_vel_pub = self.create_publisher(Twist, '/niihan/cmd_vel', 10)
         
@@ -80,7 +92,15 @@ class ROSBridgeNode(Node):
         self.follow_waypoints_client = ActionClient(self, FollowWaypoints, '/follow_waypoints')
         
         # Timer for safety timeout
-        self.create_timer(0.1, self.safety_loop)
+        # BUGFIX: this was 0.1s (10 Hz), slower than Nav2's velocity_smoother
+        # (20 Hz, see nav2_params.yaml) which publishes on this same
+        # /niihan/cmd_vel topic with no arbitration/mux between the two
+        # sources. That let Nav2 keep commanding nonzero velocity for a
+        # window after a geofence breach was flagged, since goal
+        # cancellation is asynchronous. Running at >= Nav2's rate shrinks
+        # (does not eliminate) that race. A real fix is a dedicated cmd_vel
+        # safety mux or a costmap keepout layer generated from the geofence.
+        self.create_timer(0.05, self.safety_loop)
         self.create_timer(1.0, self.update_path_history)
         
         self.nav2_ready = False
@@ -105,23 +125,41 @@ class ROSBridgeNode(Node):
             
         # Decimate further if still too large
         if len(points) > 30000:
-            points = points[::30]
+            points = [p for i in range(0, len(points), 90) for p in points[i:i+3]]
         else:
-            points = points[::3]
+            points = [p for i in range(0, len(points), 9) for p in points[i:i+3]]
             
         self.pointcloud_data = points
 
     def odom_callback(self, msg):
-        self.telemetry["pose"]["x"] = msg.pose.pose.position.x
-        self.telemetry["pose"]["y"] = msg.pose.pose.position.y
-        self.telemetry["pose"]["z"] = msg.pose.pose.position.z
-        q = msg.pose.pose.orientation
-        roll, pitch, yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)
-        self.telemetry["pose"]["yaw"] = yaw
-        
+        # NOTE: pose (x/y/z/yaw) is intentionally NOT taken from /odom -- see
+        # _update_pose_from_tf(). Velocity is frame-independent so /odom is
+        # still the right source for it.
         self.telemetry["velocity"]["linear_x"] = msg.twist.twist.linear.x
         self.telemetry["velocity"]["linear_y"] = msg.twist.twist.linear.y
         self.telemetry["velocity"]["angular_z"] = msg.twist.twist.angular.z
+
+    def _update_pose_from_tf(self):
+        """Look up the robot's true map-frame pose (map -> base_footprint).
+
+        BUGFIX: this must be used for anything geofence/mission related
+        instead of raw /odom. /odom is uncorrected dead-reckoning and drifts
+        away from the 'map' frame as slam_toolbox corrects the map->odom
+        transform (e.g. on loop closure), so a geofence check against raw
+        odom can be wrong by an arbitrarily large amount once drift has
+        accumulated.
+        """
+        try:
+            t = self.tf_buffer.lookup_transform(
+                'map', 'base_footprint', rclpy.time.Time())
+        except Exception:
+            return  # keep the last known pose rather than guessing
+        self.telemetry["pose"]["x"] = t.transform.translation.x
+        self.telemetry["pose"]["y"] = t.transform.translation.y
+        self.telemetry["pose"]["z"] = t.transform.translation.z
+        q = t.transform.rotation
+        _, _, yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)
+        self.telemetry["pose"]["yaw"] = yaw
 
     def imu_callback(self, msg):
         self.telemetry["imu"]["ax"] = msg.linear_acceleration.x
@@ -151,6 +189,8 @@ class ROSBridgeNode(Node):
     def image_callback(self, msg):
         try:
             cv_image = self.cv_bridge.imgmsg_to_cv2(msg, "bgr8")
+            # Fix 180° flipped camera feed from Gazebo
+            cv_image = cv2.rotate(cv_image, cv2.ROTATE_180)
             encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 50]
             result, encimg = cv2.imencode('.jpg', cv_image, encode_param)
             if result:
@@ -166,6 +206,8 @@ class ROSBridgeNode(Node):
                 self.path_history.pop(0)
 
     def safety_loop(self):
+        self._update_pose_from_tf()
+
         if not self.geofence_manager.is_robot_inside(self.telemetry["pose"]["x"], self.telemetry["pose"]["y"]):
             if not self.safety_manager.estop_active:
                 self.safety_manager.trigger_estop()
@@ -291,24 +333,41 @@ class ROSBridgeNode(Node):
         self._get_nav_result_future.add_done_callback(self.nav_get_result_callback)
 
     def nav_get_result_callback(self, future):
-        result = future.result().result
-        self.get_logger().info(f'Nav Goal Result: {result}')
+        # BUGFIX: previously logged the result without ever checking status,
+        # so a canceled/aborted goal looked identical to a succeeded one.
+        status = future.result().status
         self.active_nav_goal_handle = None
+        if status == GoalStatus.STATUS_SUCCEEDED:
+            self.get_logger().info('Nav Goal reached.')
+        elif status == GoalStatus.STATUS_CANCELED:
+            self.get_logger().info('Nav Goal canceled.')
+        else:
+            self.get_logger().warn(f'Nav Goal failed (status={status}).')
 
     def send_waypoints(self):
         if not self.mission_manager.start_mission():
             return
             
         goal_msg = FollowWaypoints.Goal()
-        for wp in self.mission_manager.waypoints:
+        waypoints = self.mission_manager.waypoints
+        for i, wp in enumerate(waypoints):
             pose = PoseStamped()
             pose.header.frame_id = wp.get("frame", "map")
             pose.header.stamp = self.get_clock().now().to_msg()
             pose.pose.position.x = float(wp["x"])
             pose.pose.position.y = float(wp["y"])
             pose.pose.position.z = float(wp["z"])
-            cy = math.cos(wp["yaw"] * 0.5)
-            sy = math.sin(wp["yaw"] * 0.5)
+            
+            yaw = float(wp["yaw"])
+            if yaw == 0.0 and i < len(waypoints) - 1:
+                next_wp = waypoints[i+1]
+                yaw = math.atan2(float(next_wp["y"]) - pose.pose.position.y, float(next_wp["x"]) - pose.pose.position.x)
+            elif yaw == 0.0 and i > 0:
+                prev_wp = waypoints[i-1]
+                yaw = math.atan2(pose.pose.position.y - float(prev_wp["y"]), pose.pose.position.x - float(prev_wp["x"]))
+                
+            cy = math.cos(yaw * 0.5)
+            sy = math.sin(yaw * 0.5)
             pose.pose.orientation.w = cy
             pose.pose.orientation.z = sy
             goal_msg.poses.append(pose)
@@ -342,12 +401,52 @@ class ROSBridgeNode(Node):
         self._get_result_future.add_done_callback(self.get_result_callback)
 
     def get_result_callback(self, future):
+        # BUGFIX: this used to unconditionally set state="COMPLETED" and mark
+        # every waypoint "COMPLETED" whenever the result future resolved at
+        # all -- including on CANCELED (e.g. a geofence-triggered e-stop, or
+        # a manual cancel) and on ABORTED. It also never looked at
+        # result.missed_waypoints, so with waypoint_follower.stop_on_failure
+        # set to false (nav2_params.yaml) Nav2 can return STATUS_SUCCEEDED
+        # after silently skipping unreachable waypoints, and this would
+        # still report a full "mission complete" for waypoints the robot
+        # never actually reached.
+        status = future.result().status
         result = future.result().result
-        self.get_logger().info(f'Result: {result}')
-        self.mission_manager.state = "COMPLETED"
-        for wp in self.mission_manager.waypoints:
-            wp["status"] = "COMPLETED"
         self.active_fw_goal_handle = None
+
+        if status == GoalStatus.STATUS_SUCCEEDED:
+            missed_indices = set()
+            for mw in (getattr(result, 'missed_waypoints', None) or []):
+                # Nav2's FollowWaypoints result type has changed across
+                # versions: older releases return a list of waypoint indices
+                # (ints), newer ones a list of MissedWaypoint msgs with an
+                # 'index' field. Handle both.
+                idx = mw if isinstance(mw, int) else getattr(mw, 'index', None)
+                if idx is not None:
+                    missed_indices.add(idx)
+
+            if missed_indices:
+                self.mission_manager.state = "FAILED"
+                for i, wp in enumerate(self.mission_manager.waypoints):
+                    wp["status"] = "FAILED" if i in missed_indices else "COMPLETED"
+                self.get_logger().warn(
+                    f'Mission ended with missed waypoints: {sorted(missed_indices)}.')
+            else:
+                self.mission_manager.state = "COMPLETED"
+                for wp in self.mission_manager.waypoints:
+                    wp["status"] = "COMPLETED"
+                self.get_logger().info('Mission complete: all waypoints reached.')
+
+        elif status == GoalStatus.STATUS_CANCELED:
+            # Leave per-waypoint statuses as fw_feedback_callback last left
+            # them (accurately reflects real progress); just record that the
+            # mission did not complete.
+            self.mission_manager.state = "CANCELLED"
+            self.get_logger().info('Mission canceled.')
+
+        else:
+            self.mission_manager.state = "FAILED"
+            self.get_logger().warn(f'Mission aborted (status={status}).')
 
     def get_telemetry_json(self):
         state = {

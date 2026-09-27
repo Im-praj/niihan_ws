@@ -356,7 +356,7 @@ velocity_smoother:
 waypoint_follower:
   ros__parameters:
     loop_rate: 20
-    stop_on_failure: false
+    stop_on_failure: true
     use_sim_time: true
     wait_at_waypoint:
       enabled: true

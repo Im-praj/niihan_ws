@@ -6,8 +6,13 @@ import http.server
 import socketserver
 import os
 import json
+import signal
+import sys
 from ament_index_python.packages import get_package_share_directory
 from niihan_dashboard.ros_bridge import ROSBridgeNode
+
+class ReusableTCPServer(socketserver.TCPServer):
+    allow_reuse_address = True
 
 class DashboardServer:
     def __init__(self):
@@ -66,17 +71,22 @@ class DashboardServer:
             receive_commands()
         )
 
+# Global reference to httpd so we can shut it down
+httpd_server = None
+
 def serve_static(directory, port=8080):
+    global httpd_server
     os.chdir(directory)
     Handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer(("0.0.0.0", port), Handler) as httpd:
+    httpd_server = ReusableTCPServer(("0.0.0.0", port), Handler)
+    with httpd_server:
         print(f"Serving at http://0.0.0.0:{port}")
-        httpd.serve_forever()
+        httpd_server.serve_forever()
 
-async def run_websocket_server(dashboard_server):
+async def run_websocket_server(dashboard_server, stop_event):
     print("Starting WebSocket server on ws://0.0.0.0:8081")
     async with websockets.serve(dashboard_server.ws_handler, "0.0.0.0", 8081):
-        await asyncio.Future()  # run forever
+        await stop_event.wait()
 
 def main(args=None):
     rclpy.init(args=args)
@@ -98,11 +108,27 @@ def main(args=None):
     dashboard_server = DashboardServer()
     dashboard_server.ros_node = ros_node
     
+    loop = asyncio.get_event_loop()
+    stop_event = asyncio.Event()
+
+    def shutdown_handler(signum, frame):
+        print("Shutdown signal received...")
+        if httpd_server:
+            # Run in a separate thread to not block the signal handler
+            threading.Thread(target=httpd_server.shutdown).start()
+        # Schedule the stop event to be set in the asyncio loop
+        loop.call_soon_threadsafe(stop_event.set)
+
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
+    
     try:
-        asyncio.run(run_websocket_server(dashboard_server))
+        loop.run_until_complete(run_websocket_server(dashboard_server, stop_event))
     except KeyboardInterrupt:
         pass
     finally:
+        if httpd_server:
+            httpd_server.server_close()
         ros_node.destroy_node()
         rclpy.shutdown()
 

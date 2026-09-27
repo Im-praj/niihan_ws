@@ -150,7 +150,6 @@ def generate_launch_description():
             # Actuation and Odometry
             '/niihan/gazebo_cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
             '/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
-            '/niihan/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
 
