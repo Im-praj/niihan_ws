@@ -29,15 +29,24 @@ ODOM_SAFE_BOUNDARY = (-11.0, 27.0, -14.0, 14.0)
 class PatrolController(Node):
     def __init__(self):
         super().__init__('patrol_controller')
+        try:
+            self.declare_parameter('use_sim_time', True)
+        except rclpy.exceptions.ParameterAlreadyDeclaredException:
+            pass
         self.nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.create_subscription(OccupancyGrid, '/map', self.map_callback, 10)
         self.create_subscription(LaserScan, '/scan', self.scan_callback, 10)
-        self.cmd_pub = self.create_publisher(Twist, '/niihan/cmd_vel', 10)
+        self.cmd_pub = self.create_publisher(Twist, '/niihan/cmd_vel/recovery', 10)
         self.serialize_client = self.create_client(SerializePoseGraph, '/slam_toolbox/serialize_map')
         self.deserialize_client = self.create_client(DeserializePoseGraph, '/slam_toolbox/deserialize_map')
         self.save_map_client = self.create_client(SaveMap, '/slam_toolbox/save_map')
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
+        self._pose_valid = False
+        self._last_pose_time = None
+        self._pose_timeout = 1.0
+        self.create_timer(0.2, self._check_pose_validity)
+
         self.map_msg = None
         self.scan_msg = None
         self.map_version = 0
@@ -608,6 +617,28 @@ class PatrolController(Node):
             self.get_logger().info(f'{kind.capitalize()} goal reached; waiting for map update.')
         elif kind is not None:
             self.get_logger().warn(f'{kind.capitalize()} goal ended with status {status}.')
+
+
+    def _check_pose_validity(self):
+        try:
+            tf = self.tf_buffer.lookup_transform('map', 'base_footprint', rclpy.time.Time(), timeout=rclpy.duration.Duration(seconds=0.05))
+            self._pose_valid = True
+            self._last_pose_time = self.get_clock().now()
+        except Exception:
+            if self._last_pose_time is None:
+                self._pose_valid = False
+            else:
+                dt = (self.get_clock().now() - self._last_pose_time).nanoseconds / 1e9
+                if dt > self._pose_timeout:
+                    self._pose_valid = False
+
+        if not self._pose_valid and self.goal_kind is not None:
+            self.get_logger().error('SAFETY: Map pose unavailable or stale. Canceling goal.')
+            if self.goal_handle is not None:
+                self.goal_handle.cancel_goal_async()
+                self.goal_handle = None
+            self.goal_kind = None
+            self.publish_stop()
 
     def publish_stop(self):
         self.cmd_pub.publish(Twist())

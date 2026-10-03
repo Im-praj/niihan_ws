@@ -11,14 +11,16 @@ point cloud map that captures the environment geometry.
 
 import math
 import os
-import struct
+from collections import deque
 import time
 
 import numpy as np
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy, qos_profile_sensor_data
+from niihan_description.point_cloud_utils import xyz_array
 
 from sensor_msgs.msg import PointCloud2, PointField
 from std_msgs.msg import Header, String
@@ -58,12 +60,14 @@ class Vortex3DMapper(Node):
         # ── Parameters ───────────────────────────────────────────────
         try: self.declare_parameter('use_sim_time', True)
         except rclpy.exceptions.ParameterAlreadyDeclaredException: pass
-        except rclpy.exceptions.ParameterAlreadyDeclaredException: pass
+        self.declare_parameter('transform_timeout', 0.5)
         self.declare_parameter('voxel_resolution', 0.05)
         self.declare_parameter('max_range', 25.0)
         self.declare_parameter('min_range', 0.5)
         self.declare_parameter('publish_rate', 1.0)
         self.declare_parameter('save_interval', 30.0)
+        self.declare_parameter('save_directory', os.path.join(
+            os.environ.get('ROS_HOME', os.path.expanduser('~/.ros')), 'niihan_maps'))
         self.declare_parameter('map_frame', 'map')
         self.declare_parameter('max_points', 5_000_000)
         self.declare_parameter('downsample_resolution', 0.15)
@@ -84,14 +88,19 @@ class Vortex3DMapper(Node):
         self._last_save_time: float = time.time()
 
         # ── TF ───────────────────────────────────────────────────────
-        self._tf_buffer = Buffer()
+        self._pending_clouds = deque(maxlen=5)
+        self._last_clock_stamp = None
+        self._transform_timeout = self.get_parameter('transform_timeout').value
+        self._tf_buffer = Buffer(node=self)
         self._tf_listener = TransformListener(self._tf_buffer, self)
 
         # ── Publishers ───────────────────────────────────────────────
+        map_qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                             reliability=ReliabilityPolicy.RELIABLE)
         self._map_pub = self.create_publisher(
-            PointCloud2, '/vortex/point_cloud_map', 10)
+            PointCloud2, '/vortex/point_cloud_map', map_qos)
         self._ds_pub = self.create_publisher(
-            PointCloud2, '/vortex/point_cloud_map_downsampled', 10)
+            PointCloud2, '/vortex/point_cloud_map_downsampled', map_qos)
         self._status_pub = self.create_publisher(
             String, '/vortex/status', 10)
 
@@ -100,10 +109,11 @@ class Vortex3DMapper(Node):
             PointCloud2,
             '/niihan/sensors/lidar/points',
             self._cb_pointcloud,
-            10,
+            qos_profile_sensor_data,
         )
 
         # ── Timers ───────────────────────────────────────────────────
+        self.create_timer(0.02, self._process_pending_clouds)
         self.create_timer(1.0 / self._publish_rate, self._publish_map)
         self.create_timer(10.0, self._log_stats)
 
@@ -115,43 +125,44 @@ class Vortex3DMapper(Node):
     # Point cloud callback
     # ================================================================
     def _cb_pointcloud(self, msg: PointCloud2):
-        self.get_logger().info(f"Got cloud! frame_id={msg.header.frame_id}")
-        """Transform incoming point cloud into map frame and add to voxel set."""
-        # Look up transform from sensor frame to map
+        """Wait for TF at acquisition time without blocking TF subscription callbacks."""
+        stamp = rclpy.time.Time.from_msg(msg.header.stamp)
+        if stamp.nanoseconds <= 0 or not msg.header.frame_id:
+            return
+        now_ns = self.get_clock().now().nanoseconds
+        if self._last_clock_stamp is not None and now_ns < self._last_clock_stamp:
+            # A reset simulation/bag must not merge a new trajectory into the old map.
+            self._pending_clouds.clear()
+            self._voxels.clear()
+            self._scan_count = 0
+        self._last_clock_stamp = now_ns
+        self._pending_clouds.append((msg, time.monotonic()))
+
+    def _process_pending_clouds(self):
+        while self._pending_clouds:
+            msg, received = self._pending_clouds[0]
+            stamp = rclpy.time.Time.from_msg(msg.header.stamp)
+            age = (self.get_clock().now() - stamp).nanoseconds / 1e9
+            if age < 0 or age > self._transform_timeout or time.monotonic() - received > self._transform_timeout:
+                self._pending_clouds.popleft()
+                continue
+            try:
+                tf = self._tf_buffer.lookup_transform(self._map_frame, msg.header.frame_id, stamp)
+            except TransformException:
+                # Try again after the listener has consumed the corresponding TF.
+                return
+            self._pending_clouds.popleft()
+            self._integrate_cloud(msg, tf)
+
+    def _integrate_cloud(self, msg, tf):
         try:
-            tf = self._tf_buffer.lookup_transform(
-                self._map_frame,
-                msg.header.frame_id,
-                rclpy.time.Time(),   # latest available
-                timeout=rclpy.duration.Duration(seconds=0.1),
-            )
-        except TransformException as e:
-            self.get_logger().warn(
-                f'TF lookup failed ({msg.header.frame_id} → '
-                f'{self._map_frame}): {e}',
-                throttle_duration_sec=5.0)
-            self.get_logger().info("Returning early"); return
-
-        # Extract x, y, z offsets from PointCloud2 fields
-        field_map = {f.name: f.offset for f in msg.fields}
-        if not all(k in field_map for k in ('x', 'y', 'z')):
-            self.get_logger().info("Returning early"); return
-
-        x_off = field_map['x']
-        y_off = field_map['y']
-        z_off = field_map['z']
-        step = msg.point_step
-        data = bytes(msg.data)
-        n_pts = len(data) // step
-
-        if n_pts == 0:
-            self.get_logger().info("Returning early"); return
-
-        # Fast extraction via numpy
-        raw = np.frombuffer(data, dtype=np.uint8).reshape(n_pts, step)
-        xs = np.frombuffer(raw[:, x_off:x_off + 4].tobytes(), dtype=np.float32)
-        ys = np.frombuffer(raw[:, y_off:y_off + 4].tobytes(), dtype=np.float32)
-        zs = np.frombuffer(raw[:, z_off:z_off + 4].tobytes(), dtype=np.float32)
+            points = xyz_array(msg)
+        except ValueError as exc:
+            self.get_logger().warn(f'Invalid point cloud: {exc}', throttle_duration_sec=5.0)
+            return
+        if not len(points):
+            return
+        xs, ys, zs = points.T
 
         # Filter invalid / out-of-range points
         dist = np.sqrt(xs * xs + ys * ys + zs * zs)
@@ -162,7 +173,7 @@ class Vortex3DMapper(Node):
         xs, ys, zs = xs[mask], ys[mask], zs[mask]
 
         if len(xs) == 0:
-            self.get_logger().info("Returning early"); return
+            return
 
         # ── Transform to map frame ──────────────────────────────────
         t = tf.transform.translation
@@ -215,7 +226,7 @@ class Vortex3DMapper(Node):
     def _publish_map(self):
         """Publish the full and downsampled 3D point cloud map."""
         if not self._voxels:
-            self.get_logger().info("Returning early"); return
+            return
 
         stamp = self.get_clock().now().to_msg()
 
@@ -263,14 +274,14 @@ class Vortex3DMapper(Node):
     # ================================================================
     def _save_pcd(self):
         """Save the current 3D map as an ASCII PCD file."""
-        save_dir = os.path.expanduser('~/.ros/niihan_maps')
+        save_dir = os.path.expanduser(self.get_parameter('save_directory').value)
         os.makedirs(save_dir, exist_ok=True)
         pcd_path = os.path.join(save_dir, '3d_map.pcd')
 
         pts = self._voxels_to_array(self._voxels, self._voxel_res)
         n = len(pts)
         if n == 0:
-            self.get_logger().info("Returning early"); return
+            return
 
         try:
             with open(pcd_path, 'w') as f:
@@ -317,12 +328,12 @@ def main(args=None):
     node = Vortex3DMapper()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         node.get_logger().info('Shutting down Vortex3DMapper.')
     finally:
         node._save_pcd()  # final save
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == '__main__':

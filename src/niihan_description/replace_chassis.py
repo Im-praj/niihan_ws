@@ -109,7 +109,7 @@ replacement = """<xacro:macro name="niihan_suspension" params="prefix side_refle
     <child link="power_control_box"/>
     <origin xyz="-0.05 0 ${chassis_height/2}" rpy="0 0 0"/>
   </joint>
-  
+
   <link name="estop_button">
     <visual><geometry><cylinder radius="0.02" length="0.02"/></geometry><material name="estop_red"><color rgba="0.8 0.1 0.1 1.0"/></material></visual>
   </link>

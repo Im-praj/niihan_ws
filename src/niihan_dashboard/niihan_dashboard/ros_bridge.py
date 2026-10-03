@@ -1,471 +1,544 @@
+import base64
+import copy
+from functools import wraps
+import json
+import math
+import threading
+import time
+
+import cv2
+import numpy as np
 import rclpy
 from rclpy.node import Node
+from rclpy.clock import Clock, ClockType
+from rclpy.action import ActionClient
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
 from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry, OccupancyGrid
 from sensor_msgs.msg import Imu, Image, PointCloud2
-from nav2_msgs.action import NavigateToPose, FollowWaypoints
-from rclpy.action import ActionClient
-from rclpy.qos import QoSProfile, QoSDurabilityPolicy
+from std_msgs.msg import Bool
+from nav2_msgs.action import NavigateToPose
+from nav2_msgs.msg import CostmapFilterInfo
 from action_msgs.msg import GoalStatus
 from tf2_ros import Buffer, TransformListener
-import math
-import json
-import base64
-import cv2
 from cv_bridge import CvBridge
-import struct
 
 from niihan_dashboard.safety_manager import SafetyManager
 from niihan_dashboard.mission_manager import MissionManager
 from niihan_dashboard.geofence_manager import GeofenceManager
 
+
+def synchronized(method):
+    """Websocket commands and ROS callbacks share mission/action state."""
+    @wraps(method)
+    def locked(self, *args, **kwargs):
+        with self._state_lock:
+            return method(self, *args, **kwargs)
+    return locked
+
+
 def euler_from_quaternion(x, y, z, w):
-    t0 = +2.0 * (w * x + y * z)
-    t1 = +1.0 - 2.0 * (x * x + y * y)
-    roll_x = math.atan2(t0, t1)
-    
-    t2 = +2.0 * (w * y - z * x)
-    t2 = +1.0 if t2 > +1.0 else t2
-    t2 = -1.0 if t2 < -1.0 else t2
-    pitch_y = math.asin(t2)
-    
-    t3 = +2.0 * (w * z + x * y)
-    t4 = +1.0 - 2.0 * (y * y + z * z)
-    yaw_z = math.atan2(t3, t4)
-    
-    return roll_x, pitch_y, yaw_z
+    return (math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y)),
+            math.asin(max(-1.0, min(1.0, 2 * (w * y - z * x)))),
+            math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)))
+
 
 class ROSBridgeNode(Node):
     def __init__(self):
         super().__init__('dashboard_ros_bridge')
-        
+        self._state_lock = threading.RLock()
+        for name, value in (('global_frame', 'map'), ('robot_base_frame', 'base_footprint'),
+                            ('pose_max_age', 1.0), ('pose_future_tolerance', 0.1),
+                            ('pose_freeze_timeout', 3.0),
+                            ('goal_verify_xy_tolerance', 0.25), ('goal_verify_yaw_tolerance', 0.30),
+                            ('geofence_margin', 0.45)):
+            self.declare_parameter(name, value)
+        self.global_frame = self.get_parameter('global_frame').value
+        self.base_frame = self.get_parameter('robot_base_frame').value
+        self.pose_max_age = float(self.get_parameter('pose_max_age').value)
+        # ROS age bounds pose accuracy; wall time separately detects a paused clock.
+        self.pose_freeze_timeout = float(self.get_parameter('pose_freeze_timeout').value)
+        self.pose_future_tolerance = float(self.get_parameter('pose_future_tolerance').value)
+        self.goal_verify_xy_tolerance = float(self.get_parameter('goal_verify_xy_tolerance').value)
+        self.goal_verify_yaw_tolerance = float(self.get_parameter('goal_verify_yaw_tolerance').value)
+        self.geofence_margin = float(self.get_parameter('geofence_margin').value)
         self.geofence_manager = GeofenceManager()
         self.safety_manager = SafetyManager(geofence_manager=self.geofence_manager)
         self.mission_manager = MissionManager(geofence_manager=self.geofence_manager)
         self.cv_bridge = CvBridge()
-        
         self.telemetry = {
-            "pose": {"x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0},
-            "velocity": {"linear_x": 0.0, "linear_y": 0.0, "angular_z": 0.0},
-            "imu": {"ax": 0.0, "ay": 0.0, "az": 0.0, "wx": 0.0, "wy": 0.0, "wz": 0.0},
-            "localization": {"source": "SLAM_TOOLBOX", "health": "OK", "confidence": 1.0}
+            'pose': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': 0.0},
+            'velocity': {'linear_x': 0.0, 'linear_y': 0.0, 'angular_z': 0.0},
+            'imu': {'ax': 0.0, 'ay': 0.0, 'az': 0.0, 'wx': 0.0, 'wy': 0.0, 'wz': 0.0},
+            'localization': {'source': 'TF', 'health': 'UNAVAILABLE', 'confidence': 0.0, 'age': None},
         }
-        
+        self.pose_valid = False
+        self._last_tf_stamp = None
+        self._last_tf_advance = None
+        self._last_ros_time = None
         self.map_data = None
+        self.map_generation = 0
+        self._map_info = None
+        self._map_geometry = None
         self.latest_image = None
+        self.image_generation = 0
         self.path_history = []
         self.pointcloud_data = []
-        
-        self.active_nav_goal_handle = None
-        self.active_fw_goal_handle = None
-        
+        self.pc_generation = 0
         self.last_pc_time = 0.0
-
-        # BUGFIX: geofence + mission waypoints are defined in the 'map'
-        # frame, but pose used to come straight from raw /odom, which is
-        # uncorrected dead-reckoning that drifts away from 'map' as
-        # slam_toolbox updates the map->odom transform. That let the robot
-        # actually cross the geofence in the map frame while telemetry (in
-        # the odom frame) still looked "inside". We now look up the real
-        # map->base_footprint transform instead (see _update_pose_from_tf).
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
-
-        # Publishers
-        self.cmd_vel_pub = self.create_publisher(Twist, '/niihan/cmd_vel', 10)
-        
-        # Subscribers
-        self.create_subscription(Odometry, '/odom', self.odom_callback, 10)
-        self.create_subscription(Imu, '/niihan/imu/data', self.imu_callback, 10)
-        
-        # Map requires transient local to get the latched map on startup
-        map_qos = QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
-        self.create_subscription(OccupancyGrid, '/map', self.map_callback, map_qos)
-        
-        # RTAB-Map Point Cloud (using default QoS to match publisher VOLATILE)
-        self.create_subscription(PointCloud2, '/vortex/point_cloud_map', self.pointcloud_callback, 10)
-        
-        self.create_subscription(Image, '/niihan/sensors/panoramic/front/image_raw', self.image_callback, 10)
-        
-        # Action Clients
-        self.nav_to_pose_client = ActionClient(self, NavigateToPose, '/navigate_to_pose')
-        self.follow_waypoints_client = ActionClient(self, FollowWaypoints, '/follow_waypoints')
-        
-        # Timer for safety timeout
-        # BUGFIX: this was 0.1s (10 Hz), slower than Nav2's velocity_smoother
-        # (20 Hz, see nav2_params.yaml) which publishes on this same
-        # /niihan/cmd_vel topic with no arbitration/mux between the two
-        # sources. That let Nav2 keep commanding nonzero velocity for a
-        # window after a geofence breach was flagged, since goal
-        # cancellation is asynchronous. Running at >= Nav2's rate shrinks
-        # (does not eliminate) that race. A real fix is a dedicated cmd_vel
-        # safety mux or a costmap keepout layer generated from the geofence.
-        self.create_timer(0.05, self.safety_loop)
-        self.create_timer(1.0, self.update_path_history)
-        
+        self._active_navigation = None
+        self._next_request_id = 0
+        self.navigation = {'state': 'IDLE', 'message': '', 'target': None}
         self.nav2_ready = False
+        self.tf_buffer = Buffer(node=self)
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+        latched = QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
+        self.cmd_vel_pub = self.create_publisher(Twist, '/niihan/cmd_vel/manual', 10)
+        self.estop_pub = self.create_publisher(Bool, '/niihan/e_stop', latched)
+        self.keepout_pub = self.create_publisher(OccupancyGrid, '/niihan/geofence_mask', latched)
+        self.filter_info_pub = self.create_publisher(CostmapFilterInfo, '/niihan/geofence_filter_info', latched)
+        self.create_subscription(Odometry, '/odom', self.odom_callback, qos_profile_sensor_data)
+        self.create_subscription(Imu, '/niihan/imu/data', self.imu_callback, qos_profile_sensor_data)
+        self.create_subscription(OccupancyGrid, '/map', self.map_callback, latched)
+        self.create_subscription(PointCloud2, '/vortex/point_cloud_map', self.pointcloud_callback, qos_profile_sensor_data)
+        self.create_subscription(Image, '/niihan/sensors/panoramic/front/image_raw', self.image_callback, qos_profile_sensor_data)
+        self.nav_to_pose_client = ActionClient(self, NavigateToPose, '/navigate_to_pose')
+        # A paused /clock must not freeze the manual watchdog or localization stop.
+        self._steady_clock = Clock(clock_type=ClockType.STEADY_TIME)
+        self.create_timer(0.05, self.safety_loop, clock=self._steady_clock)
+        self.create_timer(1.0, self.update_path_history, clock=self._steady_clock)
         self.check_nav2()
 
     def check_nav2(self):
-        self.nav2_ready = self.follow_waypoints_client.server_is_ready()
-        
+        self.nav2_ready = self.nav_to_pose_client.server_is_ready()
+        return self.nav2_ready
+
     def pointcloud_callback(self, msg):
-        import time
-        now = time.time()
-        if now - self.last_pc_time < 0.2: # 5 Hz max
+        now = time.monotonic()
+        if now - self.last_pc_time < 0.2:
             return
         self.last_pc_time = now
-
         import sensor_msgs_py.point_cloud2 as pc2
-        points = []
-        
-        # Read x, y, z fields, skip some points for downsampling
-        for p in pc2.read_points(msg, field_names=("x", "y", "z"), skip_nans=True):
-            points.extend([float(p[0]), float(p[1]), float(p[2])])
-            
-        # Decimate further if still too large
-        if len(points) > 30000:
-            points = [p for i in range(0, len(points), 90) for p in points[i:i+3]]
-        else:
-            points = [p for i in range(0, len(points), 9) for p in points[i:i+3]]
-            
-        self.pointcloud_data = points
+        stride = max(3, math.ceil(msg.width * msg.height / 10000))
+        try:
+            # Select the display budget before Python conversion. Walking every
+            # voxel here starves TF and the safety timer as the 3D map grows.
+            selected = pc2.read_points(msg, field_names=('x', 'y', 'z'),
+                                       uvs=np.arange(0, msg.width * msg.height, stride))
+            xyz = np.column_stack([selected[name] for name in ('x', 'y', 'z')])
+            points = xyz[np.isfinite(xyz).all(axis=1)].ravel().tolist()
+        except (ValueError, AssertionError, KeyError, TypeError) as exc:
+            self.get_logger().warning(f'Ignoring invalid display cloud: {exc}')
+            return
+        with self._state_lock:
+            self.pointcloud_data = points
+            self.pc_generation += 1
 
+    @synchronized
     def odom_callback(self, msg):
-        # NOTE: pose (x/y/z/yaw) is intentionally NOT taken from /odom -- see
-        # _update_pose_from_tf(). Velocity is frame-independent so /odom is
-        # still the right source for it.
-        self.telemetry["velocity"]["linear_x"] = msg.twist.twist.linear.x
-        self.telemetry["velocity"]["linear_y"] = msg.twist.twist.linear.y
-        self.telemetry["velocity"]["angular_z"] = msg.twist.twist.angular.z
+        self.telemetry['velocity'].update(linear_x=msg.twist.twist.linear.x,
+                                          linear_y=msg.twist.twist.linear.y,
+                                          angular_z=msg.twist.twist.angular.z)
 
     def _update_pose_from_tf(self):
-        """Look up the robot's true map-frame pose (map -> base_footprint).
-
-        BUGFIX: this must be used for anything geofence/mission related
-        instead of raw /odom. /odom is uncorrected dead-reckoning and drifts
-        away from the 'map' frame as slam_toolbox corrects the map->odom
-        transform (e.g. on loop closure), so a geofence check against raw
-        odom can be wrong by an arbitrarily large amount once drift has
-        accumulated.
-        """
+        now = self.get_clock().now().nanoseconds / 1e9
+        steady_now = time.monotonic()
+        self.pose_valid = False
+        localization = self.telemetry['localization']
+        localization.update(health='UNAVAILABLE', confidence=0.0, age=None)
+        clock_reset = self._last_ros_time is not None and now < self._last_ros_time - self.pose_future_tolerance
+        self._last_ros_time = now
         try:
-            t = self.tf_buffer.lookup_transform(
-                'map', 'base_footprint', rclpy.time.Time())
+            transform = self.tf_buffer.lookup_transform(self.global_frame, self.base_frame, rclpy.time.Time())
+            stamp = transform.header.stamp.sec + transform.header.stamp.nanosec / 1e9
+            age = now - stamp
+            localization['age'] = age
+            if stamp != self._last_tf_stamp:
+                self._last_tf_stamp = stamp
+                self._last_tf_advance = steady_now
+            frozen = self._last_tf_advance is None or steady_now - self._last_tf_advance > self.pose_freeze_timeout
+            if clock_reset or now <= 0 or stamp <= 0 or age > self.pose_max_age or age < -self.pose_future_tolerance or frozen:
+                localization['health'] = 'STALE'
+                return False
+            translation = transform.transform.translation
+            q = transform.transform.rotation
+            values = (translation.x, translation.y, translation.z, q.x, q.y, q.z, q.w)
+            if not all(math.isfinite(value) for value in values) or sum(v * v for v in values[3:]) < 1e-12:
+                return False
+            _, _, yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)
+            self.telemetry['pose'].update(x=translation.x, y=translation.y, z=translation.z, yaw=yaw)
+            localization.update(health='OK', confidence=1.0)
+            self.pose_valid = True
+            return True
         except Exception:
-            return  # keep the last known pose rather than guessing
-        self.telemetry["pose"]["x"] = t.transform.translation.x
-        self.telemetry["pose"]["y"] = t.transform.translation.y
-        self.telemetry["pose"]["z"] = t.transform.translation.z
-        q = t.transform.rotation
-        _, _, yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)
-        self.telemetry["pose"]["yaw"] = yaw
+            return False
 
+    @synchronized
     def imu_callback(self, msg):
-        self.telemetry["imu"]["ax"] = msg.linear_acceleration.x
-        self.telemetry["imu"]["ay"] = msg.linear_acceleration.y
-        self.telemetry["imu"]["az"] = msg.linear_acceleration.z
-        self.telemetry["imu"]["wx"] = msg.angular_velocity.x
-        self.telemetry["imu"]["wy"] = msg.angular_velocity.y
-        self.telemetry["imu"]["wz"] = msg.angular_velocity.z
+        self.telemetry['imu'].update(ax=msg.linear_acceleration.x, ay=msg.linear_acceleration.y,
+                                     az=msg.linear_acceleration.z, wx=msg.angular_velocity.x,
+                                     wy=msg.angular_velocity.y, wz=msg.angular_velocity.z)
 
+    @synchronized
     def map_callback(self, msg):
+        if msg.header.frame_id != self.global_frame or msg.info.resolution <= 0:
+            self.get_logger().warning('Ignoring occupancy grid with invalid frame or resolution.')
+            return
+        if len(msg.data) != msg.info.width * msg.info.height:
+            self.get_logger().warning('Ignoring occupancy grid with inconsistent dimensions.')
+            return
         q = msg.info.origin.orientation
-        roll, pitch, yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)
-        
-        self.map_data = {
-            "type": "map",
-            "width": msg.info.width,
-            "height": msg.info.height,
-            "resolution": msg.info.resolution,
-            "origin": {
-                "x": msg.info.origin.position.x,
-                "y": msg.info.origin.position.y,
-                "yaw": yaw
-            },
-            "data": list(msg.data)
-        }
+        _, _, yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)
+        self.map_generation += 1
+        self.map_data = {'type': 'map', 'frame_id': msg.header.frame_id,
+                         'revision': self.map_generation,
+                         'width': msg.info.width, 'height': msg.info.height,
+                         'resolution': msg.info.resolution,
+                         'origin': {'x': msg.info.origin.position.x, 'y': msg.info.origin.position.y, 'yaw': yaw},
+                         'data': list(msg.data)}
+        geometry = (msg.info.width, msg.info.height, msg.info.resolution,
+                    msg.info.origin.position.x, msg.info.origin.position.y, yaw)
+        self._map_info = copy.deepcopy(msg.info)
+        if geometry != self._map_geometry:
+            self._map_geometry = geometry
+            self._publish_keepout()
+
+    def _publish_keepout(self):
+        if self._map_info is None:
+            return
+        mask = OccupancyGrid()
+        mask.header.frame_id = self.global_frame
+        mask.header.stamp = self.get_clock().now().to_msg()
+        mask.info = copy.deepcopy(self._map_info)
+        mask.data = self.geofence_manager.keepout_mask(*self._map_geometry, self.geofence_margin)
+        self.keepout_pub.publish(mask)
+        info = CostmapFilterInfo()
+        info.header = copy.deepcopy(mask.header)
+        info.type = 0
+        info.filter_mask_topic = '/niihan/geofence_mask'
+        info.base = 0.0
+        info.multiplier = 1.0
+        self.filter_info_pub.publish(info)
 
     def image_callback(self, msg):
         try:
-            cv_image = self.cv_bridge.imgmsg_to_cv2(msg, "bgr8")
-            # Fix 180° flipped camera feed from Gazebo
-            cv_image = cv2.rotate(cv_image, cv2.ROTATE_180)
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 50]
-            result, encimg = cv2.imencode('.jpg', cv_image, encode_param)
+            cv_image = cv2.rotate(self.cv_bridge.imgmsg_to_cv2(msg, 'bgr8'), cv2.ROTATE_180)
+            result, encoded = cv2.imencode('.jpg', cv_image, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
             if result:
-                self.latest_image = base64.b64encode(encimg).decode('utf-8')
-        except Exception as e:
-            self.get_logger().error(f"Image conversion error: {e}")
+                with self._state_lock:
+                    self.latest_image = base64.b64encode(encoded).decode('utf-8')
+                    self.image_generation += 1
+        except Exception as exc:
+            self.get_logger().error(f'Image conversion error: {exc}')
 
+    @synchronized
     def update_path_history(self):
         self.check_nav2()
-        if self.telemetry["pose"]["x"] != 0.0 or self.telemetry["pose"]["y"] != 0.0:
-            self.path_history.append({"x": self.telemetry["pose"]["x"], "y": self.telemetry["pose"]["y"]})
-            if len(self.path_history) > 300:
-                self.path_history.pop(0)
+        if self.pose_valid:
+            self.path_history.append({key: self.telemetry['pose'][key] for key in ('x', 'y')})
+            self.path_history = self.path_history[-300:]
 
-    def safety_loop(self):
-        self._update_pose_from_tf()
+    def _publish_estop(self, active):
+        message = Bool()
+        message.data = active
+        self.estop_pub.publish(message)
 
-        if not self.geofence_manager.is_robot_inside(self.telemetry["pose"]["x"], self.telemetry["pose"]["y"]):
-            if not self.safety_manager.estop_active:
-                self.safety_manager.trigger_estop()
-                self.get_logger().error("GEOFENCE BREACH: E-STOP TRIGGERED")
+    def _stop_navigation(self, message, failed=False):
+        operation = self._active_navigation
+        if operation is not None:
+            operation['cancelling'] = True
+            operation['failure'] = failed
+            if operation['kind'] == 'mission':
                 self.mission_manager.cancel_mission()
-                if self.active_nav_goal_handle:
-                    self.active_nav_goal_handle.cancel_goal_async()
-                    self.active_nav_goal_handle = None
-                if self.active_fw_goal_handle:
-                    self.active_fw_goal_handle.cancel_goal_async()
-                    self.active_fw_goal_handle = None
+                if failed:
+                    self.mission_manager.state = 'FAILED'
+                    self.mission_manager.waypoints[operation['index']]['status'] = 'FAILED'
+                self.mission_manager.message = message
+            handle = operation.get('handle')
+            if handle is not None and not operation.get('cancel_sent'):
+                operation['cancel_sent'] = True
+                try:
+                    handle.cancel_goal_async()
+                except Exception as exc:
+                    self.get_logger().error(f'Could not send action cancellation: {exc}')
+            self.navigation.update(state='FAILED' if failed else 'CANCELLED', message=message)
+        self.cmd_vel_pub.publish(Twist())
 
-        if self.safety_manager.mode == "MANUAL" and not self.safety_manager.can_move(self.telemetry["pose"]["x"], self.telemetry["pose"]["y"]):
-            msg = Twist()
-            self.cmd_vel_pub.publish(msg)
-            
+    def _trigger_estop(self, message):
+        self.safety_manager.trigger_estop()
+        self._publish_estop(True)
+        self._stop_navigation(message, failed=True)
+        self.get_logger().error(message)
+
+    @synchronized
+    def safety_loop(self):
+        valid = self._update_pose_from_tf()
+        pose = self.telemetry['pose']
+        if not self.safety_manager.estop_active:
+            if not valid and (self._active_navigation is not None or
+                              (self.geofence_manager.enabled and self.safety_manager.can_move())):
+                self._trigger_estop('Localization unavailable or stale. Navigation stopped.')
+            elif valid and not self.geofence_manager.is_robot_inside(pose['x'], pose['y'], self.geofence_margin):
+                self._trigger_estop('GEOFENCE BREACH: robot footprint reached the geofence boundary.')
         if self.safety_manager.estop_active:
-            msg = Twist()
-            self.cmd_vel_pub.publish(msg)
+            self.cmd_vel_pub.publish(Twist())
+        elif self.safety_manager.mode == 'MANUAL' and not self.safety_manager.can_move():
+            self.cmd_vel_pub.publish(Twist())
 
+    @staticmethod
+    def _response(action, success, message):
+        return {'type': 'mission_write_response' if action == 'write_mission' else 'command_response',
+                'action': action, 'success': success, 'message': message}
+
+    @synchronized
     def process_command(self, cmd_data):
-        action = cmd_data.get("action")
-        
-        if action == "estop":
-            self.safety_manager.trigger_estop()
-            self.mission_manager.cancel_mission()
-            if self.active_nav_goal_handle:
-                self.active_nav_goal_handle.cancel_goal_async()
-                self.active_nav_goal_handle = None
-            if self.active_fw_goal_handle:
-                self.active_fw_goal_handle.cancel_goal_async()
-                self.active_fw_goal_handle = None
-            self.get_logger().info("E-STOP ACTIVATED")
-            
-        elif action == "clear_estop":
+        if not isinstance(cmd_data, dict):
+            return self._response(None, False, 'Command must be a JSON object.')
+        action = cmd_data.get('action')
+        try:
+            return self._process_command(action, cmd_data)
+        except (ValueError, TypeError, KeyError, OverflowError) as exc:
+            return self._response(action, False, str(exc))
+
+    def _process_command(self, action, data):
+        if action == 'estop':
+            self._trigger_estop('E-stop activated by operator.')
+        elif action == 'clear_estop':
+            if self._active_navigation is not None:
+                return self._response(action, False, 'Waiting for Nav2 cancellation; e-stop remains active.')
+            if not self._update_pose_from_tf():
+                return self._response(action, False, 'Fresh map-frame localization is required to clear e-stop.')
+            pose = self.telemetry['pose']
+            if not self.geofence_manager.is_robot_inside(pose['x'], pose['y'], self.geofence_margin):
+                return self._response(action, False, 'Robot footprint is outside the usable geofence area.')
             self.safety_manager.clear_estop()
-            self.get_logger().info("E-STOP CLEARED")
-            
-        elif action == "set_mode":
-            mode = cmd_data.get("mode", "MANUAL")
+            self._publish_estop(False)
+        elif action == 'set_mode':
+            mode = data.get('mode')
+            if mode not in ('MANUAL', 'AUTO'):
+                raise ValueError('Mode must be MANUAL or AUTO.')
+            if mode != self.safety_manager.mode:
+                self._stop_navigation('Mode changed; navigation cancelled.')
             self.safety_manager.set_mode(mode)
-            self.get_logger().info(f"Mode set to {mode}")
-            
-        elif action == "joystick":
-            if self.safety_manager.validate_manual_command():
-                msg = Twist()
-                msg.linear.x = float(cmd_data.get("linear_x", 0.0))
-                msg.angular.z = float(cmd_data.get("angular_z", 0.0))
-                self.cmd_vel_pub.publish(msg)
-                
-        elif action == "nav_goal":
-            if self.safety_manager.mode == "AUTO" and not self.safety_manager.estop_active:
-                x = float(cmd_data.get("x", 0.0))
-                y = float(cmd_data.get("y", 0.0))
-                yaw = float(cmd_data.get("yaw", 0.0))
-                self.send_nav_goal(x, y, yaw)
-                
-        elif action == "add_waypoint":
-            self.mission_manager.add_waypoint(cmd_data.get("x"), cmd_data.get("y"), cmd_data.get("z", 0.0), cmd_data.get("yaw"))
-            
-        elif action == "update_waypoint":
-            self.mission_manager.update_waypoint(cmd_data.get("id"), cmd_data.get("x"), cmd_data.get("y"), cmd_data.get("z", 0.0), cmd_data.get("yaw"))
-            
-        elif action == "delete_waypoint":
-            self.mission_manager.delete_waypoint(cmd_data.get("id"))
-            
-        elif action == "reorder_waypoint":
-            self.mission_manager.reorder_waypoint(cmd_data.get("id"), cmd_data.get("direction"))
-            
-        elif action == "clear_mission":
-            self.mission_manager.clear_mission()
-            
-        elif action == "write_mission":
-            self.check_nav2()
-            if not self.nav2_ready:
-                return {"type": "mission_write_response", "success": False, "message": "MISSION NOT WRITTEN\nReason: Nav2 FollowWaypoints action unavailable."}
-            success, msg = self.mission_manager.write_mission()
-            return {"type": "mission_write_response", "success": success, "message": msg}
-            
-        elif action == "start_mission":
-            if self.safety_manager.mode == "AUTO" and not self.safety_manager.estop_active:
-                self.send_waypoints()
-                
-        elif action == "cancel_mission":
-            self.mission_manager.cancel_mission()
-            if self.active_fw_goal_handle:
-                self.active_fw_goal_handle.cancel_goal_async()
-                self.active_fw_goal_handle = None
-            
-        elif action == "set_geofence":
-            self.geofence_manager.set_geofence(cmd_data.get("polygon", []))
-            
-        elif action == "clear_geofence":
-            self.geofence_manager.clear_geofence()
+        elif action == 'joystick':
+            linear = float(data.get('linear_x', 0.0))
+            angular = float(data.get('angular_z', 0.0))
+            if not math.isfinite(linear) or not math.isfinite(angular):
+                raise ValueError('Velocity must be finite.')
+            if self.geofence_manager.enabled and not self._update_pose_from_tf():
+                return self._response(action, False, 'Fresh localization is required while geofencing is enabled.')
+            pose = self.telemetry['pose']
+            if not self.geofence_manager.is_robot_inside(pose['x'], pose['y'], self.geofence_margin):
+                self._trigger_estop('GEOFENCE BREACH: manual command rejected.')
+            if not self.safety_manager.validate_manual_command():
+                return self._response(action, False, 'Manual command blocked by mode or e-stop.')
+            msg = Twist()
+            msg.linear.x, msg.angular.z = linear, angular
+            self.cmd_vel_pub.publish(msg)
+            return None
+        elif action == 'nav_goal':
+            coords = self.mission_manager._coordinates(data.get('x'), data.get('y'), yaw=data.get('yaw', 0.0))
+            success, message = self.send_nav_goal(coords['x'], coords['y'], coords['yaw'])
+            return self._response(action, success, message)
+        elif action in ('add_waypoint', 'update_waypoint', 'delete_waypoint', 'reorder_waypoint', 'clear_mission', 'write_mission'):
+            if self._active_navigation is not None:
+                raise ValueError('Cancel navigation and wait for cancellation before editing a mission.')
+            if action == 'add_waypoint':
+                self.mission_manager.add_waypoint(data.get('x'), data.get('y'), data.get('z', 0.0), data.get('yaw'))
+            elif action == 'update_waypoint':
+                self.mission_manager.update_waypoint(data.get('id'), data.get('x'), data.get('y'), data.get('z', 0.0), data.get('yaw'))
+            elif action == 'delete_waypoint':
+                self.mission_manager.delete_waypoint(data.get('id'))
+            elif action == 'reorder_waypoint':
+                self.mission_manager.reorder_waypoint(data.get('id'), data.get('direction'))
+            elif action == 'clear_mission':
+                self.mission_manager.clear_mission()
+            else:
+                if not self.check_nav2():
+                    return self._response(action, False, 'Nav2 NavigateToPose action unavailable.')
+                valid, message = self.geofence_manager.is_valid_mission(self.mission_manager.waypoints, margin=self.geofence_margin)
+                if not valid:
+                    return self._response(action, False, message)
+                return self._response(action, *self.mission_manager.write_mission())
+        elif action == 'start_mission':
+            return self._response(action, *self.send_waypoints())
+        elif action == 'cancel_mission':
+            self._stop_navigation('Navigation cancelled by operator.')
+            if self._active_navigation is None:
+                self.mission_manager.cancel_mission()
+        elif action in ('set_geofence', 'clear_geofence'):
+            if self._active_navigation is not None:
+                raise ValueError('Cancel navigation before changing the geofence.')
+            if action == 'set_geofence':
+                success, message = self.geofence_manager.set_geofence(data.get('polygon', []))
+                if not success:
+                    return self._response(action, False, message)
+            else:
+                self.geofence_manager.clear_geofence()
+            self._publish_keepout()
+            if self.mission_manager.state == 'READY':
+                self.mission_manager._edited()
+        else:
+            return self._response(action, False, 'Unknown command.')
+        return self._response(action, True, action.replace('_', ' ').capitalize() + ' applied.')
 
-        return None
+    def _can_start_navigation(self, targets):
+        if not self.safety_manager.validate_auto_command():
+            return False, 'Navigation requires AUTO mode and a cleared e-stop.'
+        if self._active_navigation is not None:
+            return False, 'Navigation is already active or cancellation is pending.'
+        if not self.check_nav2():
+            return False, 'Nav2 NavigateToPose action unavailable.'
+        if not self._update_pose_from_tf():
+            return False, 'Fresh map-frame localization is required to navigate.'
+        if self.geofence_manager.enabled and self._map_info is None:
+            return False, 'The 2D map is required to publish the geofence keepout mask.'
+        return self.geofence_manager.is_valid_mission(targets, self.telemetry['pose'], self.geofence_margin)
 
+    @synchronized
     def send_nav_goal(self, x, y, yaw):
-        goal_msg = NavigateToPose.Goal()
-        goal_msg.pose.header.frame_id = 'map'
-        goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
-        goal_msg.pose.pose.position.x = x
-        goal_msg.pose.pose.position.y = y
-        
-        cy = math.cos(yaw * 0.5)
-        sy = math.sin(yaw * 0.5)
-        goal_msg.pose.pose.orientation.w = cy
-        goal_msg.pose.pose.orientation.z = sy
-        
-        self.nav_to_pose_client.wait_for_server(timeout_sec=1.0)
-        future = self.nav_to_pose_client.send_goal_async(goal_msg)
-        future.add_done_callback(self.nav_goal_response_callback)
-        self.get_logger().info(f"Sent nav goal: x={x}, y={y}")
+        target = self.mission_manager._coordinates(x, y, yaw=yaw)
+        success, message = self._can_start_navigation([target])
+        if not success:
+            return success, message
+        operation = {'kind': 'nav', 'targets': [target], 'index': 0, 'cancelling': False}
+        self._active_navigation = operation
+        return self._dispatch_target(operation)
 
-    def nav_goal_response_callback(self, future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().info('Nav Goal rejected')
-            return
-        self.active_nav_goal_handle = goal_handle
-        self.get_logger().info('Nav Goal accepted')
-        self._get_nav_result_future = goal_handle.get_result_async()
-        self._get_nav_result_future.add_done_callback(self.nav_get_result_callback)
-
-    def nav_get_result_callback(self, future):
-        # BUGFIX: previously logged the result without ever checking status,
-        # so a canceled/aborted goal looked identical to a succeeded one.
-        status = future.result().status
-        self.active_nav_goal_handle = None
-        if status == GoalStatus.STATUS_SUCCEEDED:
-            self.get_logger().info('Nav Goal reached.')
-        elif status == GoalStatus.STATUS_CANCELED:
-            self.get_logger().info('Nav Goal canceled.')
-        else:
-            self.get_logger().warn(f'Nav Goal failed (status={status}).')
-
+    @synchronized
     def send_waypoints(self):
+        targets = copy.deepcopy(self.mission_manager.waypoints)
+        success, message = self._can_start_navigation(targets)
+        if not success:
+            return success, message
         if not self.mission_manager.start_mission():
+            return False, 'Write a nonempty mission before starting it.'
+        operation = {'kind': 'mission', 'targets': targets, 'index': 0, 'cancelling': False}
+        self._active_navigation = operation
+        return self._dispatch_target(operation)
+
+    def _dispatch_target(self, operation):
+        target = dict(operation['targets'][operation['index']])
+        if target['yaw'] is None:
+            pose = self.telemetry['pose']
+            dx, dy = target['x'] - pose['x'], target['y'] - pose['y']
+            target['yaw'] = math.atan2(dy, dx) if math.hypot(dx, dy) > 1e-6 else pose['yaw']
+        goal = NavigateToPose.Goal()
+        goal.pose.header.frame_id = self.global_frame
+        # Targets are fixed coordinates in the global frame. A zero stamp avoids
+        # pinning long missions to a historical TF sample that leaves the cache.
+        goal.pose.pose.position.x = target['x']
+        goal.pose.pose.position.y = target['y']
+        goal.pose.pose.orientation.z = math.sin(target['yaw'] / 2.0)
+        goal.pose.pose.orientation.w = math.cos(target['yaw'] / 2.0)
+        self._next_request_id += 1
+        request_id = self._next_request_id
+        operation.update(request_id=request_id, target=target, handle=None, cancel_sent=False)
+        self.navigation.update(state='PENDING', message='Waiting for Nav2 goal acceptance.', target=target)
+        try:
+            future = self.nav_to_pose_client.send_goal_async(goal)
+            future.add_done_callback(lambda completed: self._goal_response(completed, operation, request_id))
+        except Exception as exc:
+            self._finish_navigation(operation, 'FAILED', f'Could not send goal: {exc}')
+            return False, str(exc)
+        return True, 'Navigation goal sent.'
+
+    @synchronized
+    def _goal_response(self, future, operation, request_id):
+        try:
+            handle = future.result()
+            if self._active_navigation is not operation or operation['request_id'] != request_id:
+                if handle.accepted:
+                    handle.cancel_goal_async()
+                return
+            if not handle.accepted:
+                state = 'FAILED' if not operation['cancelling'] or operation.get('failure') else 'CANCELLED'
+                self._finish_navigation(operation, state, 'Nav2 rejected the goal.')
+                return
+            operation['handle'] = handle
+            result_future = handle.get_result_async()
+            result_future.add_done_callback(lambda completed: self._goal_result(completed, operation, request_id))
+            if operation['cancelling']:
+                # Stop requests can arrive while send_goal_async is awaiting acceptance.
+                if not operation['cancel_sent']:
+                    operation['cancel_sent'] = True
+                    handle.cancel_goal_async()
+            elif self._active_navigation is operation:
+                self.navigation.update(state='RUNNING', message='Navigating to target.')
+        except Exception as exc:
+            if self._active_navigation is operation and operation['request_id'] == request_id:
+                self._trigger_estop(f'Navigation action response failed: {exc}')
+                self._finish_navigation(operation, 'FAILED', f'Navigation action response failed: {exc}')
+
+    @synchronized
+    def _goal_result(self, future, operation, request_id):
+        if self._active_navigation is not operation or operation['request_id'] != request_id:
             return
-            
-        goal_msg = FollowWaypoints.Goal()
-        waypoints = self.mission_manager.waypoints
-        for i, wp in enumerate(waypoints):
-            pose = PoseStamped()
-            pose.header.frame_id = wp.get("frame", "map")
-            pose.header.stamp = self.get_clock().now().to_msg()
-            pose.pose.position.x = float(wp["x"])
-            pose.pose.position.y = float(wp["y"])
-            pose.pose.position.z = float(wp["z"])
-            
-            yaw = float(wp["yaw"])
-            if yaw == 0.0 and i < len(waypoints) - 1:
-                next_wp = waypoints[i+1]
-                yaw = math.atan2(float(next_wp["y"]) - pose.pose.position.y, float(next_wp["x"]) - pose.pose.position.x)
-            elif yaw == 0.0 and i > 0:
-                prev_wp = waypoints[i-1]
-                yaw = math.atan2(pose.pose.position.y - float(prev_wp["y"]), pose.pose.position.x - float(prev_wp["x"]))
-                
-            cy = math.cos(yaw * 0.5)
-            sy = math.sin(yaw * 0.5)
-            pose.pose.orientation.w = cy
-            pose.pose.orientation.z = sy
-            goal_msg.poses.append(pose)
-            
-        self.follow_waypoints_client.wait_for_server(timeout_sec=1.0)
-        future = self.follow_waypoints_client.send_goal_async(goal_msg, feedback_callback=self.fw_feedback_callback)
-        future.add_done_callback(self.goal_response_callback)
-        self.get_logger().info("Sent waypoints mission")
-
-    def fw_feedback_callback(self, feedback_msg):
-        feedback = feedback_msg.feedback
-        current_wp = feedback.current_waypoint
-        for i, wp in enumerate(self.mission_manager.waypoints):
-            if i < current_wp:
-                wp["status"] = "COMPLETED"
-            elif i == current_wp:
-                wp["status"] = "ACTIVE"
-            else:
-                wp["status"] = "PENDING"
-
-    def goal_response_callback(self, future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().info('Goal rejected')
-            self.mission_manager.state = "FAILED"
+        try:
+            result = future.result()
+            status = result.status
+        except Exception as exc:
+            self._trigger_estop(f'Navigation result unavailable: {exc}')
+            self._finish_navigation(operation, 'FAILED', f'Navigation result unavailable: {exc}')
             return
-        
-        self.get_logger().info('Goal accepted')
-        self.active_fw_goal_handle = goal_handle
-        self._get_result_future = goal_handle.get_result_async()
-        self._get_result_future.add_done_callback(self.get_result_callback)
+        if operation['cancelling']:
+            state = 'FAILED' if operation.get('failure') else 'CANCELLED'
+            self._finish_navigation(operation, state, self.navigation['message'])
+            return
+        if status != GoalStatus.STATUS_SUCCEEDED:
+            state = 'CANCELLED' if status == GoalStatus.STATUS_CANCELED else 'FAILED'
+            self._finish_navigation(operation, state, f'Nav2 goal ended with status {status}.')
+            return
+        target = operation['target']
+        if not self._update_pose_from_tf():
+            self._trigger_estop('Nav2 reported success without fresh localization; arrival cannot be confirmed.')
+            self._finish_navigation(operation, 'FAILED', 'Arrival cannot be confirmed: localization is stale.')
+            return
+        pose = self.telemetry['pose']
+        distance = math.hypot(pose['x'] - target['x'], pose['y'] - target['y'])
+        yaw_error = abs(math.atan2(math.sin(pose['yaw'] - target['yaw']), math.cos(pose['yaw'] - target['yaw'])))
+        if distance > self.goal_verify_xy_tolerance or yaw_error > self.goal_verify_yaw_tolerance:
+            self._finish_navigation(operation, 'FAILED',
+                                    f'Nav2 reported success away from target ({distance:.2f} m, {yaw_error:.2f} rad); mission stopped.')
+            return
+        if operation['kind'] == 'mission':
+            index = operation['index']
+            self.mission_manager.waypoints[index]['status'] = 'COMPLETED'
+            if index + 1 < len(operation['targets']):
+                operation['index'] += 1
+                self.mission_manager.current_waypoint_index = operation['index']
+                self.mission_manager.waypoints[operation['index']]['status'] = 'ACTIVE'
+                self.mission_manager.message = f"Navigating to waypoint {operation['index'] + 1}."
+                self._dispatch_target(operation)
+                return
+        self._finish_navigation(operation, 'COMPLETED', 'Target reached and map-frame pose verified.')
 
-    def get_result_callback(self, future):
-        # BUGFIX: this used to unconditionally set state="COMPLETED" and mark
-        # every waypoint "COMPLETED" whenever the result future resolved at
-        # all -- including on CANCELED (e.g. a geofence-triggered e-stop, or
-        # a manual cancel) and on ABORTED. It also never looked at
-        # result.missed_waypoints, so with waypoint_follower.stop_on_failure
-        # set to false (nav2_params.yaml) Nav2 can return STATUS_SUCCEEDED
-        # after silently skipping unreachable waypoints, and this would
-        # still report a full "mission complete" for waypoints the robot
-        # never actually reached.
-        status = future.result().status
-        result = future.result().result
-        self.active_fw_goal_handle = None
+    def _finish_navigation(self, operation, state, message):
+        if self._active_navigation is not operation:
+            return
+        if operation['kind'] == 'mission':
+            self.mission_manager.state = state
+            self.mission_manager.message = message
+            wp = self.mission_manager.waypoints[operation['index']]
+            if state != 'COMPLETED' and wp['status'] != 'COMPLETED':
+                wp['status'] = state
+        self.navigation.update(state=state, message=message)
+        self._active_navigation = None
+        self.get_logger().info(message)
 
-        if status == GoalStatus.STATUS_SUCCEEDED:
-            missed_indices = set()
-            for mw in (getattr(result, 'missed_waypoints', None) or []):
-                # Nav2's FollowWaypoints result type has changed across
-                # versions: older releases return a list of waypoint indices
-                # (ints), newer ones a list of MissedWaypoint msgs with an
-                # 'index' field. Handle both.
-                idx = mw if isinstance(mw, int) else getattr(mw, 'index', None)
-                if idx is not None:
-                    missed_indices.add(idx)
-
-            if missed_indices:
-                self.mission_manager.state = "FAILED"
-                for i, wp in enumerate(self.mission_manager.waypoints):
-                    wp["status"] = "FAILED" if i in missed_indices else "COMPLETED"
-                self.get_logger().warn(
-                    f'Mission ended with missed waypoints: {sorted(missed_indices)}.')
-            else:
-                self.mission_manager.state = "COMPLETED"
-                for wp in self.mission_manager.waypoints:
-                    wp["status"] = "COMPLETED"
-                self.get_logger().info('Mission complete: all waypoints reached.')
-
-        elif status == GoalStatus.STATUS_CANCELED:
-            # Leave per-waypoint statuses as fw_feedback_callback last left
-            # them (accurately reflects real progress); just record that the
-            # mission did not complete.
-            self.mission_manager.state = "CANCELLED"
-            self.get_logger().info('Mission canceled.')
-
-        else:
-            self.mission_manager.state = "FAILED"
-            self.get_logger().warn(f'Mission aborted (status={status}).')
-
+    @synchronized
     def get_telemetry_json(self):
-        state = {
-            "type": "telemetry",
-            "timestamp": self.get_clock().now().nanoseconds / 1e9,
-            "pose": self.telemetry["pose"],
-            "velocity": self.telemetry["velocity"],
-            "mode": self.safety_manager.mode,
-            "estop": self.safety_manager.estop_active,
-            "mission": self.mission_manager.get_status(),
-            "geofence": self.geofence_manager.get_status(),
-            "localization": self.telemetry["localization"],
-            "path_history": self.path_history,
-            "nav2_ready": self.nav2_ready
-        }
-        return json.dumps(state)
+        return json.dumps({'type': 'telemetry', 'timestamp': self.get_clock().now().nanoseconds / 1e9,
+                           'pose': self.telemetry['pose'], 'pose_valid': self.pose_valid,
+                           'velocity': self.telemetry['velocity'], 'mode': self.safety_manager.mode,
+                           'estop': self.safety_manager.estop_active, 'mission': self.mission_manager.get_status(),
+                           'geofence': self.geofence_manager.get_status(), 'localization': self.telemetry['localization'],
+                           'path_history': self.path_history, 'nav2_ready': self.nav2_ready, 'navigation': self.navigation})
 
+    @synchronized
+    def get_map_snapshot(self):
+        return self.map_generation, json.dumps(self.map_data) if self.map_data else None
+
+    @synchronized
     def get_pointcloud_json(self):
-        return json.dumps({
-            "type": "pointcloud",
-            "data": self.pointcloud_data
-        })
+        return json.dumps({'type': 'pointcloud', 'data': self.pointcloud_data})

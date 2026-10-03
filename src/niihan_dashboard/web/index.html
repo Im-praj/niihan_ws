@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NIIHAN GCS | 4WD SKID-STEER</title>
-    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/dashboard.css?v=20261002">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
@@ -45,8 +45,13 @@
                 </div>
             </div>
 
-            <div class="view-container" id="view-2d" style="display:none;">
+            <div class="view-container" id="view-2d">
                 <canvas id="map-canvas" width="800" height="600"></canvas>
+                <div class="view-overlay"><span id="map-status-2d">2D MAP: WAITING FOR /map</span></div>
+                <div class="map-controls">
+                    <button id="btn-fit-map" class="btn">FIT MAP</button>
+                    <span>Drag to pan · Scroll to zoom · Dashed lines show mission order</span>
+                </div>
             </div>
         </div>
 
@@ -125,6 +130,8 @@
                     <div class="status-label">MISSION STATUS</div>
                     <div id="mission-state" class="state-text">IDLE</div>
                     <div id="mission-progress" class="progress-text">-</div>
+                    <div id="navigation-status" class="progress-text">NAVIGATION: IDLE</div>
+                    <div id="command-status" class="progress-text" role="status" aria-live="polite"></div>
                 </div>
                 <div class="exec-actions">
                     <button id="btn-start-mission" class="btn btn-success" disabled>START MISSION</button>
@@ -139,8 +146,8 @@
         </div>
     </div>
 
-    <script src="js/viewer2d.js"></script>
-    <script src="js/viewer3d.js"></script>
-    <script src="js/dashboard.js"></script>
+    <script src="js/viewer2d.js?v=20261002"></script>
+    <script src="js/viewer3d.js?v=20261002"></script>
+    <script src="js/dashboard.js?v=20261002"></script>
 </body>
 </html>

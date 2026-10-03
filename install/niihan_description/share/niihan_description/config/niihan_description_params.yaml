@@ -1,5 +1,0 @@
-# Configuration parameters for niihan_description
-niihan_description:
-  ros__parameters:
-    # Add your parameters here
-    example_param: "default_value"

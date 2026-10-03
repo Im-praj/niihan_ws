@@ -84,7 +84,7 @@ new_sensors = """
     <child link="orbbec_astra2_link"/>
     <origin xyz="-0.1 0 ${mast_height - 0.18}" rpy="0 0 3.14159"/>
   </joint>
-  
+
   <link name="orbbec_color_optical_frame"/>
   <joint name="orbbec_color_optical_joint" type="fixed">
     <parent link="orbbec_astra2_link"/>

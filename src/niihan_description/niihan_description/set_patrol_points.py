@@ -148,6 +148,10 @@ class SetPatrolPointsNode(Node):
 
     def __init__(self):
         super().__init__('set_patrol_points')
+        try:
+            self.declare_parameter('use_sim_time', True)
+        except rclpy.exceptions.ParameterAlreadyDeclaredException:
+            pass
         self._wp_pub = self.create_publisher(PoseArray, '/patrol/set_waypoints', 10)
         self._cmd_pub = self.create_publisher(String, '/patrol/command', 10)
 

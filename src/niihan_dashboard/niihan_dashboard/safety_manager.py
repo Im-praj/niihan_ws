@@ -15,7 +15,7 @@ class SafetyManager:
         self.estop_active = False
 
     def update_command_time(self):
-        self.last_command_time = time.time()
+        self.last_command_time = time.monotonic()
 
     def set_mode(self, mode):
         if mode in ["MANUAL", "AUTO"]:
@@ -24,17 +24,17 @@ class SafetyManager:
     def can_move(self, current_x=None, current_y=None):
         if self.estop_active:
             return False
-        
+
         if self.geofence_manager and current_x is not None and current_y is not None:
             if not self.geofence_manager.is_robot_inside(current_x, current_y):
                 self.trigger_estop()
                 return False
-        
+
         # Check timeout for manual commands
         if self.mode == "MANUAL":
-            if time.time() - self.last_command_time > self.timeout_sec:
+            if time.monotonic() - self.last_command_time > self.timeout_sec:
                 return False
-                
+
         return True
 
     def validate_manual_command(self):

@@ -8,14 +8,14 @@ def get_data_files():
     data_files = [
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-        ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name, ['package.xml', 'README.md']),
         ('share/' + package_name + '/launch', glob('launch/*.launch.py')),
-        ('share/' + package_name + '/config', glob('config/*.yaml')),
+        ('share/' + package_name + '/config', glob('config/*.yaml') + glob('config/*.xml')),
         ('share/' + package_name + '/rviz', glob('rviz/*')),
         ('share/' + package_name + '/urdf', glob('urdf/*')),
         ('share/' + package_name + '/scripts', glob('scripts/*.py')),
     ]
-    
+
     for directory in ['models', 'worlds']:
         for (path, directories, filenames) in os.walk(directory):
             for filename in filenames:
@@ -33,7 +33,6 @@ setup(
     maintainer_email='dev@example.com',
     description='niihan_description ROS2 package',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'niihan_description_node = niihan_description.niihan_description_node:main',
@@ -45,6 +44,8 @@ setup(
             'teleop_mapping_keyboard = niihan_description.teleop_mapping_keyboard:main',
             'teleop_mapping_terminal = niihan_description.teleop_mapping_terminal:main',
             'differential_drive_controller = niihan_description.differential_drive_controller:main',
+            'scan_tf_gate = niihan_description.scan_tf_gate:main',
+            'command_arbiter = niihan_description.command_arbiter:main',
         ],
     },
 )

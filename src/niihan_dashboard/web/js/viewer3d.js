@@ -74,7 +74,35 @@ class Viewer3D {
         this.animate();
         
         this.onClickCallback = null;
+        this.pointerStart = null;
+        this.pointerDragged = false;
+        this.renderer.domElement.addEventListener('pointerdown', (event) => {
+            this.pointerStart = {x: event.clientX, y: event.clientY};
+            this.pointerDragged = false;
+        });
+        this.renderer.domElement.addEventListener('pointermove', (event) => {
+            if (this.pointerStart && Math.hypot(event.clientX - this.pointerStart.x,
+                event.clientY - this.pointerStart.y) > 4) this.pointerDragged = true;
+        });
+        this.renderer.domElement.addEventListener('pointerup', () => { this.pointerStart = null; });
+        this.renderer.domElement.addEventListener('pointercancel', () => {
+            this.pointerStart = null;
+            this.pointerDragged = true;
+        });
         this.renderer.domElement.addEventListener('click', this.onMouseClick.bind(this));
+    }
+
+    clearGroup(group) {
+        // Removing a Three.js object alone does not release its GPU buffers.
+        while (group.children.length) {
+            const child = group.children[0];
+            child.traverse(object => {
+                if (object.geometry) object.geometry.dispose();
+                const materials = Array.isArray(object.material) ? object.material : [object.material];
+                materials.forEach(material => { if (material) material.dispose(); });
+            });
+            group.remove(child);
+        }
     }
     
     createRobotMarker() {
@@ -122,9 +150,7 @@ class Viewer3D {
     updatePointCloud(data) {
         // data is flat array of floats [x,y,z, x,y,z...]
         // Clear previous
-        while(this.pcGroup.children.length > 0) { 
-            this.pcGroup.remove(this.pcGroup.children[0]); 
-        }
+        this.clearGroup(this.pcGroup);
         
         const geometry = new THREE.BufferGeometry();
         const vertices = new Float32Array(data);
@@ -150,9 +176,7 @@ class Viewer3D {
     }
     
     updateWaypoints(waypoints) {
-        while(this.wpGroup.children.length > 0) {
-            this.wpGroup.remove(this.wpGroup.children[0]);
-        }
+        this.clearGroup(this.wpGroup);
         
         waypoints.forEach(wp => {
             const group = new THREE.Group();
@@ -160,7 +184,8 @@ class Viewer3D {
             group.rotation.z = wp.yaw;
             
             // Sphere
-            const color = wp.status === "ACTIVE" ? 0xffff00 : (wp.status === "COMPLETED" ? 0x00ff00 : 0x00bcd4);
+            const color = wp.status === "ACTIVE" ? 0xffff00 : (wp.status === "COMPLETED" ? 0x00ff00 :
+                (['FAILED', 'MISSED'].includes(wp.status) ? 0xff4444 : 0x00bcd4));
             const sphGeo = new THREE.SphereGeometry(0.2, 16, 16);
             const sphMat = new THREE.MeshPhongMaterial({ color: color });
             const sphere = new THREE.Mesh(sphGeo, sphMat);
@@ -181,9 +206,7 @@ class Viewer3D {
     }
     
     updatePath(waypoints) {
-        while(this.pathGroup.children.length > 0) {
-            this.pathGroup.remove(this.pathGroup.children[0]);
-        }
+        this.clearGroup(this.pathGroup);
         
         if (waypoints.length < 2) return;
         
@@ -199,9 +222,7 @@ class Viewer3D {
     }
     
     updateGeofence(polygon) {
-        while(this.gfGroup.children.length > 0) {
-            this.gfGroup.remove(this.gfGroup.children[0]);
-        }
+        this.clearGroup(this.gfGroup);
         
         if (!polygon || polygon.length < 3) return;
         
@@ -233,6 +254,8 @@ class Viewer3D {
     }
     
     onMouseClick(event) {
+        // Orbit/pan gestures must not submit a goal at their release position.
+        if (this.pointerDragged) { this.pointerDragged = false; return; }
         if (!this.onClickCallback) return;
         
         const rect = this.renderer.domElement.getBoundingClientRect();
@@ -255,7 +278,7 @@ class Viewer3D {
     }
     
     onWindowResize() {
-        if (!this.container) return;
+        if (!this.container || !this.container.clientWidth || !this.container.clientHeight) return;
         this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);

@@ -12,20 +12,25 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, GroupAction, TimerAction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch_ros.actions import Node, SetRemap
+from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
     pkg_description = get_package_share_directory('niihan_description')
+    use_sim_time = LaunchConfiguration('use_sim_time')
+    use_sim_time_arg = DeclareLaunchArgument(
+        'use_sim_time', default_value='true',
+        description='Use the same ROS clock for simulation, mapping and navigation',
+    )
 
     world_arg = DeclareLaunchArgument(
         'world',
-        default_value='niihan_patrol_base.world',
+        default_value='niihan_construction_site.sdf',
         description='Gazebo world file to load (relative to niihan_description/worlds)',
     )
 
@@ -43,8 +48,8 @@ def generate_launch_description():
 
     autonav_arg = DeclareLaunchArgument(
         'autonav',
-        default_value='true',
-        description='Launch autonomous obstacle avoidance patrol controller (default: true)',
+        default_value='false',
+        description='Launch autonomous obstacle avoidance patrol controller (default: false)',
     )
 
     nav2_arg = DeclareLaunchArgument(
@@ -69,11 +74,20 @@ def generate_launch_description():
             'patrol': 'false',
             'launch_nav2': 'false',
             'octomap': 'false',
+            'vortex_3d': 'false',
+            'cliff_detect': 'true',
+            'use_sim_time': use_sim_time,
         }.items(),
     )
 
     # 2. 2D Mapping: slam_toolbox (Online Async SLAM)
     slam_params_file = os.path.join(pkg_description, 'config', 'slam_toolbox_params.yaml')
+    scan_tf_gate_node = Node(
+        package='niihan_description', executable='scan_tf_gate',
+        name='scan_tf_gate', output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
+    )
+
     slam_toolbox_node = Node(
         package='slam_toolbox',
         executable='async_slam_toolbox_node',
@@ -81,7 +95,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             slam_params_file,
-            {'use_sim_time': True}
+            {'use_sim_time': use_sim_time}
         ],
     )
 
@@ -92,7 +106,7 @@ def generate_launch_description():
         name='vortex_3d_mapper',
         output='screen',
         parameters=[{
-            'use_sim_time': True,
+            'use_sim_time': use_sim_time,
             'voxel_resolution': 0.05,
             'max_range': 25.0,
             'min_range': 0.5,
@@ -110,7 +124,7 @@ def generate_launch_description():
         executable='patrol_controller',
         name='patrol_controller',
         output='screen',
-        parameters=[{'use_sim_time': True}],
+        parameters=[{'use_sim_time': use_sim_time}],
         condition=IfCondition(LaunchConfiguration('autonav')),
     )
     delayed_patrol_controller = TimerAction(
@@ -119,25 +133,11 @@ def generate_launch_description():
     )
 
     # 5. Nav2 Stack
-    nav2_params_file = os.path.join(pkg_description, 'config', 'nav2_params.yaml')
-    nav2_launch = GroupAction(
-        actions=[
-            SetRemap(src='/cmd_vel', dst='/niihan/cmd_vel'),
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(
-                    PathJoinSubstitution([
-                        FindPackageShare('nav2_bringup'),
-                        'launch',
-                        'navigation_launch.py'
-                    ])
-                ),
-                launch_arguments={
-                    'use_sim_time': 'true',
-                    'params_file': nav2_params_file,
-                    'autostart': 'true',
-                }.items(),
-            )
-        ],
+    nav2_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_description, 'launch', 'niihan_navigation.launch.py')
+        ),
+        launch_arguments={'use_sim_time': use_sim_time}.items(),
         condition=IfCondition(LaunchConfiguration('nav2')),
     )
 
@@ -149,11 +149,12 @@ def generate_launch_description():
         name='rviz2',
         output='screen',
         arguments=['-d', rviz_config_file],
-        parameters=[{'use_sim_time': True}],
+        parameters=[{'use_sim_time': use_sim_time}],
         condition=IfCondition(LaunchConfiguration('rviz')),
     )
 
     return LaunchDescription([
+        use_sim_time_arg,
         world_arg,
         headless_arg,
         rviz_arg,
@@ -161,6 +162,7 @@ def generate_launch_description():
         nav2_arg,
         nav2_launch,
         gazebo_launch,
+        scan_tf_gate_node,
         slam_toolbox_node,
         vortex_3d_mapper_node,
         delayed_patrol_controller,

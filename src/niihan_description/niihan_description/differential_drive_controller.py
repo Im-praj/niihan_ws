@@ -2,6 +2,7 @@
 """Convert robot velocity commands into front wheel velocity commands."""
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
 from std_msgs.msg import Float64
@@ -14,6 +15,10 @@ class DifferentialDriveController(Node):
 
     def __init__(self):
         super().__init__('differential_drive_controller')
+        try:
+            self.declare_parameter('use_sim_time', True)
+        except rclpy.exceptions.ParameterAlreadyDeclaredException:
+            pass
         self.declare_parameter('wheel_radius', 0.14)
         self.declare_parameter('track_width', 0.43)
         self.declare_parameter('max_wheel_velocity', 10.0)
@@ -30,7 +35,6 @@ class DifferentialDriveController(Node):
         self.gazebo_pub = self.create_publisher(
             Twist, self.get_parameter('gazebo_topic').value, 10)
         self.create_subscription(Twist, '/niihan/cmd_vel', self.command_callback, 10)
-        self.create_subscription(Twist, '/cmd_vel', self.command_callback, 10)
 
     def command_callback(self, command: Twist):
         left, right = twist_to_wheel_velocities(
@@ -69,9 +73,11 @@ def main(args=None):
     node = DifferentialDriveController()
     try:
         rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == '__main__':

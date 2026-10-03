@@ -1,0 +1,17 @@
+niihan_construction_site.sdf adapts construction_site_procedural.sdf supplied in
+NIiihan_surveillance_rover_old/surveillance_robot_ws_workspace_lint_clean/src/surveillance_robot_gazebo.
+The supplied NOTICE identifies Im-praj/niihan_ws commit
+e2c2efc09780dfbf78e2c6ae59883ff8cb6b82a1 as the procedural scene source
+and records that the source package declares Apache-2.0.
+This adaptation renames the world, removes the externally controlled moving
+obstacle for a static repeatability baseline, and enables Contact/NavSat systems.
+No external mesh is required by the default world.
+
+construction_site_chunk5.sdf references locally supplied collision GLBs.
+Their asset LICENSE declares Proprietary; they are not relicensed under Apache-2.0.
+The optional collision asset directory is excluded from Git publication.
+
+Correction: the current default uses chunk5 collision meshes as visuals and
+collisions with a new surrounding site layout. It supersedes the initial
+procedural adaptation, which resembled the existing world. The default
+requires local proprietary assets and does not include original textures.

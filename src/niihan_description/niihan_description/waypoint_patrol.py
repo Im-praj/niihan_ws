@@ -44,6 +44,10 @@ class WaypointPatrol(Node):
     # ------------------------------------------------------------------ init
     def __init__(self):
         super().__init__('waypoint_patrol')
+        try:
+            self.declare_parameter('use_sim_time', True)
+        except rclpy.exceptions.ParameterAlreadyDeclaredException:
+            pass
 
         # ----- Parameters ------------------------------------------------
         self.declare_parameter('patrol_speed', 0.8)
@@ -85,6 +89,11 @@ class WaypointPatrol(Node):
         # ----- TF ---------------------------------------------------------
         self._tf_buffer = Buffer()
         self._tf_listener = TransformListener(self._tf_buffer, self)
+        self._pose_valid = False
+        self._last_pose_time = None
+        self._pose_timeout = 1.0
+        self.create_timer(0.2, self._check_pose_validity)
+
 
         # ----- Nav2 action client -----------------------------------------
         self._nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
@@ -93,7 +102,7 @@ class WaypointPatrol(Node):
         self._wp_pub = self.create_publisher(PoseArray, '/patrol/waypoints', 10)
         self._marker_pub = self.create_publisher(MarkerArray, '/patrol/markers', 10)
         self._status_pub = self.create_publisher(String, '/patrol/status', 10)
-        self._cmd_vel_pub = self.create_publisher(Twist, '/niihan/cmd_vel', 10)
+        self._cmd_vel_pub = self.create_publisher(Twist, '/niihan/cmd_vel/recovery', 10)
         self._arrival_pub = self.create_publisher(String, '/patrol/arrival', 10)
         self._progress_pub = self.create_publisher(String, '/patrol/progress', 10)
 
@@ -331,6 +340,10 @@ class WaypointPatrol(Node):
         if not self._waypoints:
             self.get_logger().warn('Cannot start patrol – no waypoints defined.')
             return
+
+        if not self._pose_valid:
+            self.get_logger().warn('Cannot start patrol – valid map-frame pose is unavailable.')
+            return
         self._reload_params()
         self._state = 'patrolling'
         self._wp_index = 0
@@ -553,6 +566,29 @@ class WaypointPatrol(Node):
         self._wp_index = max(0, min(len(self._waypoints) - 1, new_index))
 
     # ============================================================== SAFETY
+
+    def _check_pose_validity(self):
+        try:
+            tf = self._tf_buffer.lookup_transform('map', 'base_footprint', rclpy.time.Time(), timeout=rclpy.duration.Duration(seconds=0.05))
+            self._pose_valid = True
+            self._last_pose_time = self.get_clock().now()
+        except Exception:
+            if self._last_pose_time is None:
+                self._pose_valid = False
+            else:
+                dt = (self.get_clock().now() - self._last_pose_time).nanoseconds / 1e9
+                if dt > self._pose_timeout:
+                    self._pose_valid = False
+
+        if not self._pose_valid and self._state in ('navigating', 'patrolling', 'waiting'):
+            self.get_logger().error('SAFETY: Map pose unavailable or stale. Canceling goal.')
+            self._cancel_current_goal()
+            self._publish_stop_vel()
+            self._state = 'paused'
+            self._paused_index = self._wp_index
+            self._paused_reason = 'pose unavailable'
+            self._publish_status('paused (pose unavailable)')
+
     def _cb_map(self, msg: OccupancyGrid):
         self._map_msg = msg
 

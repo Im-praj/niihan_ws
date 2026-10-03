@@ -24,6 +24,10 @@ let robotPose = {x: 0, y: 0, z: 0, yaw: 0};
 let mapData = null;
 let waypoints = [];
 let geofencePolygon = [];
+let waypointSignature = null;
+let waypointTableSignature = null;
+let geofenceSignature = null;
+let missionIsRunning = false;
 
 // Interactions
 let interactionMode = "NONE"; // NONE, ADD_WP, SET_GOAL, CREATE_GF
@@ -34,11 +38,16 @@ let viewer3d = null;
 let viewer2d = null;
 
 window.addEventListener('load', () => {
-    viewer3d = new Viewer3D('three-canvas-container');
-    viewer3d.setOnClickCallback(onMapClick);
-    
     viewer2d = new Viewer2D('map-canvas');
     viewer2d.setOnClickCallback(onMapClick);
+    // An unavailable CDN or WebGL context must not disable the 2D planner.
+    try {
+        viewer3d = new Viewer3D('three-canvas-container');
+        viewer3d.setOnClickCallback(onMapClick);
+    } catch (error) {
+        document.getElementById('map-status-3d').textContent = '3D VIEW UNAVAILABLE';
+        console.warn('3D viewer unavailable:', error);
+    }
     
     // Tab switching
     const tabBtns = document.querySelectorAll('.tab-btn');
@@ -51,16 +60,44 @@ window.addEventListener('load', () => {
             const target = document.getElementById(btn.dataset.target);
             target.classList.add('active');
             
-            if (btn.dataset.target === 'view-3d') {
+            if (btn.dataset.target === 'view-3d' && viewer3d) {
                 viewer3d.onWindowResize();
+            } else if (btn.dataset.target === 'view-2d') {
+                viewer2d.onWindowResize();
+                viewer2d.requestRender();
             }
         });
     });
+    if (!viewer3d) document.querySelector('[data-target="view-2d"]').click();
+    document.getElementById('btn-fit-map').addEventListener('click', () => viewer2d.fitMap());
     connectWebSocket();
 });
 
+function showCommandStatus(message, success = false) {
+    const element = document.getElementById('command-status');
+    element.textContent = message;
+    element.className = `progress-text ${success ? 'ok' : 'error'}`;
+}
+
+function sendCommand(command) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        showCommandStatus('Dashboard disconnected; command was not sent.');
+        return false;
+    }
+    ws.send(JSON.stringify(command));
+    return true;
+}
+
+function updateGeofenceViews(polygon) {
+    const signature = JSON.stringify(polygon);
+    if (signature === geofenceSignature) return;
+    geofenceSignature = signature;
+    if (viewer3d) viewer3d.updateGeofence(polygon);
+    if (viewer2d) viewer2d.updateGeofence(polygon);
+}
+
 function connectWebSocket() {
-    ws = new WebSocket(`ws://${window.location.hostname}:8081`);
+    ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:8081`);
 
     ws.onopen = () => {
         isConnected = true;
@@ -72,6 +109,15 @@ function connectWebSocket() {
         isConnected = false;
         elConn.textContent = "DISCONNECTED";
         elConn.className = "status-badge error";
+        document.getElementById('btn-start-mission').disabled = true;
+        nav2Ready = false;
+        elNav.textContent = 'NAV2: UNKNOWN';
+        elNav.className = 'status-badge error';
+        document.getElementById('map-status-2d').textContent = '2D MAP: DISCONNECTED — DISPLAYING LAST MAP';
+        if (joyTimer) { clearInterval(joyTimer); joyTimer = null; }
+        isDraggingJoy = false;
+        joyKnob.style.top = '50px';
+        joyKnob.style.left = '50px';
         setTimeout(connectWebSocket, 2000);
     };
 
@@ -82,17 +128,19 @@ function connectWebSocket() {
             updateTelemetry(data);
         } else if (data.type === "map") {
             mapData = data;
-            document.getElementById('map-status-3d').textContent = `MAP SOURCE: SLAM | STATUS: READY | Res: ${data.resolution}m`;
-            if (viewer2d) viewer2d.updateMap(mapData);
+            const valid = viewer2d && viewer2d.updateMap(mapData);
+            document.getElementById('map-status-2d').textContent = valid ?
+                `2D MAP: READY | ${data.width} × ${data.height} | ${data.resolution} m/cell | ${data.frame_id || 'map'}` :
+                '2D MAP: INVALID GRID RECEIVED';
         } else if (data.type === "pointcloud") {
-            if (viewer3d) viewer3d.updatePointCloud(data.data);
+            if (viewer3d) {
+                viewer3d.updatePointCloud(data.data);
+                document.getElementById('map-status-3d').textContent = '3D POINT CLOUD: READY';
+            }
         } else if (data.type === "camera") {
             camStream.src = "data:image/jpeg;base64," + data.image;
-        } else if (data.type === "mission_write_response") {
-            alert(data.message);
-            if (data.success) {
-                document.getElementById('btn-start-mission').disabled = false;
-            }
+        } else if (data.type === "mission_write_response" || data.type === 'command_response' || data.type === 'error') {
+            showCommandStatus(data.message, data.success === true);
         }
     };
 }
@@ -109,7 +157,9 @@ function updateTelemetry(data) {
     document.getElementById('tel-vel-z').textContent = data.velocity.angular_z.toFixed(2);
     
     // Status
-    elLoc.textContent = `LOC: ${data.localization.source}`;
+    const poseValid = data.pose_valid !== false && (!data.localization.health || data.localization.health === 'OK');
+    elLoc.textContent = `LOC: ${data.localization.source} ${data.localization.health || ''}`;
+    elLoc.className = `status-badge ${poseValid ? 'ok' : 'error'}`;
     
     mode = data.mode;
     if(mode === "MANUAL") {
@@ -143,45 +193,51 @@ function updateTelemetry(data) {
     // Mission
     const m = data.mission;
     missionState.textContent = m.state;
+    missionIsRunning = ['RUNNING', 'CANCELLING'].includes(m.state);
     waypoints = m.waypoints;
-    if (viewer3d) viewer3d.updateWaypoints(waypoints);
-    if (viewer2d) viewer2d.updateWaypoints(waypoints);
+    const signature = JSON.stringify(waypoints);
+    if (signature !== waypointSignature) {
+        waypointSignature = signature;
+        if (viewer3d) viewer3d.updateWaypoints(waypoints);
+        if (viewer2d) viewer2d.updateWaypoints(waypoints);
+    }
     renderWaypointTable();
+    const completed = waypoints.filter(waypoint => waypoint.status === 'COMPLETED').length;
+    const active = waypoints.find(waypoint => waypoint.status === 'ACTIVE');
+    missionProgress.textContent = `${completed}/${waypoints.length} reached${active ? ` · Active WP ${active.id}` : ''}`;
+    const navigation = data.navigation || {state: 'UNKNOWN', message: ''};
+    document.getElementById('navigation-status').textContent = `NAVIGATION: ${navigation.state}${navigation.message ? ` — ${navigation.message}` : ''}`;
+    document.getElementById('btn-start-mission').disabled =
+        !isConnected || m.state !== 'READY' || mode !== 'AUTO' || estopActive || !nav2Ready || !poseValid;
     
     // Geofence
     const gf = data.geofence;
-    if (gf.enabled) {
-        gfState.textContent = `ARMED (${gf.vertices} pts)`;
-        geofencePolygon = gf.polygon;
-        if (viewer3d) viewer3d.updateGeofence(geofencePolygon);
-        if (viewer2d) viewer2d.updateGeofence(geofencePolygon);
-    } else {
-        gfState.textContent = "DISABLED";
-        if (interactionMode !== "CREATE_GF") {
-            if (viewer3d) viewer3d.updateGeofence([]);
-            if (viewer2d) viewer2d.updateGeofence([]);
-        }
-    }
+    geofencePolygon = gf.enabled ? gf.polygon : [];
+    gfState.textContent = interactionMode === 'CREATE_GF' ? `DRAFT (${tempPolygon.length} pts)` :
+        (gf.enabled ? `ARMED (${gf.vertices} pts)` : 'DISABLED');
+    updateGeofenceViews(interactionMode === 'CREATE_GF' ? tempPolygon : geofencePolygon);
 }
 
 // Map Click Handler
 function onMapClick(x, y, z) {
+    if (![x, y].every(Number.isFinite)) return;
     if (interactionMode === "ADD_WP") {
-        ws.send(JSON.stringify({
+        sendCommand({
             action: "add_waypoint",
             x: x, y: y, z: 0.0, // force z=0 for ground robot
             yaw: 0 // default, can be edited
-        }));
+        });
     } else if (interactionMode === "SET_GOAL") {
-        ws.send(JSON.stringify({
+        if (!sendCommand({
             action: "nav_goal",
             x: x, y: y, yaw: 0
-        }));
+        })) return;
         interactionMode = "NONE";
         document.getElementById('btn-set-goal').textContent = "SET SINGLE GOAL";
     } else if (interactionMode === "CREATE_GF") {
         tempPolygon.push({x: x, y: y});
-        if (viewer3d) viewer3d.updateGeofence(tempPolygon);
+        updateGeofenceViews(tempPolygon);
+        gfState.textContent = `DRAFT (${tempPolygon.length} pts)`;
     }
 }
 
@@ -203,18 +259,20 @@ document.getElementById('btn-set-goal').addEventListener('click', () => {
 document.getElementById('btn-geofence').addEventListener('click', () => {
     interactionMode = "CREATE_GF";
     tempPolygon = [];
+    updateGeofenceViews(tempPolygon);
     document.getElementById('btn-geofence').style.display = "none";
     document.getElementById('btn-finish-gf').style.display = "inline-block";
 });
 
 document.getElementById('btn-finish-gf').addEventListener('click', () => {
     if (tempPolygon.length >= 3) {
-        ws.send(JSON.stringify({
+        if (!sendCommand({
             action: "set_geofence",
             polygon: tempPolygon
-        }));
+        })) return;
     } else {
-        alert("Geofence needs at least 3 points");
+        showCommandStatus('Geofence needs at least 3 points.');
+        return;
     }
     interactionMode = "NONE";
     document.getElementById('btn-geofence').style.display = "inline-block";
@@ -222,36 +280,41 @@ document.getElementById('btn-finish-gf').addEventListener('click', () => {
 });
 
 document.getElementById('btn-clear-gf').addEventListener('click', () => {
-    ws.send(JSON.stringify({action: "clear_geofence"}));
+    sendCommand({action: "clear_geofence"});
 });
 
 document.getElementById('btn-write-mission').addEventListener('click', () => {
-    ws.send(JSON.stringify({action: "write_mission"}));
+    sendCommand({action: "write_mission"});
 });
 
 document.getElementById('btn-start-mission').addEventListener('click', () => {
-    ws.send(JSON.stringify({action: "start_mission"}));
+    sendCommand({action: "start_mission"});
 });
 
 document.getElementById('btn-cancel-mission').addEventListener('click', () => {
-    ws.send(JSON.stringify({action: "cancel_mission"}));
+    sendCommand({action: "cancel_mission"});
     document.getElementById('btn-start-mission').disabled = true;
 });
 
 document.getElementById('btn-clear-mission').addEventListener('click', () => {
     if(confirm("Clear entire mission?")) {
-        ws.send(JSON.stringify({action: "clear_mission"}));
+        sendCommand({action: "clear_mission"});
         document.getElementById('btn-start-mission').disabled = true;
     }
 });
 
-btnEstop.addEventListener('click', () => ws.send(JSON.stringify({action: "estop"})));
-btnClearEstop.addEventListener('click', () => ws.send(JSON.stringify({action: "clear_estop"})));
-btnManual.addEventListener('click', () => ws.send(JSON.stringify({action: "set_mode", mode: "MANUAL"})));
-btnAuto.addEventListener('click', () => ws.send(JSON.stringify({action: "set_mode", mode: "AUTO"})));
+btnEstop.addEventListener('click', () => sendCommand({action: "estop"}));
+btnClearEstop.addEventListener('click', () => sendCommand({action: "clear_estop"}));
+btnManual.addEventListener('click', () => sendCommand({action: "set_mode", mode: "MANUAL"}));
+btnAuto.addEventListener('click', () => sendCommand({action: "set_mode", mode: "AUTO"}));
 
 // Waypoint Table
 function renderWaypointTable() {
+    const signature = JSON.stringify([waypoints, missionIsRunning]);
+    if (signature === waypointTableSignature) return;
+    // Telemetry arrives several times a second. Preserve an in-progress edit.
+    if (!missionIsRunning && wpList.contains(document.activeElement)) return;
+    waypointTableSignature = signature;
     wpList.innerHTML = '';
     waypoints.forEach((wp, index) => {
         const tr = document.createElement('tr');
@@ -298,6 +361,7 @@ function renderWaypointTable() {
         
         wpList.appendChild(tr);
     });
+    wpList.querySelectorAll('input, button').forEach(element => { element.disabled = missionIsRunning; });
 }
 
 window.updateWp = function(id, field, val) {
@@ -305,26 +369,31 @@ window.updateWp = function(id, field, val) {
     if(!wp) return;
     
     let numVal = parseFloat(val);
+    if (!Number.isFinite(numVal)) {
+        showCommandStatus('Waypoint coordinates and heading must be finite numbers.');
+        waypointTableSignature = null;
+        return;
+    }
     if(field === 'yaw') {
         numVal = numVal * Math.PI / 180.0;
     }
     
-    ws.send(JSON.stringify({
+    sendCommand({
         action: "update_waypoint",
         id: id,
         x: field === 'x' ? numVal : wp.x,
         y: field === 'y' ? numVal : wp.y,
         z: field === 'z' ? numVal : wp.z,
         yaw: field === 'yaw' ? numVal : wp.yaw
-    }));
+    });
 };
 
 window.reorderWp = function(id, direction) {
-    ws.send(JSON.stringify({action: "reorder_waypoint", id: id, direction: direction}));
+    sendCommand({action: "reorder_waypoint", id: id, direction: direction});
 };
 
 window.deleteWp = function(id) {
-    ws.send(JSON.stringify({action: "delete_waypoint", id: id}));
+    sendCommand({action: "delete_waypoint", id: id});
 };
 
 
@@ -386,11 +455,11 @@ function sendJoyCmd(x, z) {
     
     if(joyCmd.x === 0 && joyCmd.z === 0) {
         if(joyTimer) { clearInterval(joyTimer); joyTimer = null; }
-        ws.send(JSON.stringify({action: "joystick", linear_x: 0, angular_z: 0}));
+        sendCommand({action: "joystick", linear_x: 0, angular_z: 0});
     } else {
         if(!joyTimer) {
             joyTimer = setInterval(() => {
-                ws.send(JSON.stringify({action: "joystick", linear_x: joyCmd.x, angular_z: joyCmd.z}));
+                sendCommand({action: "joystick", linear_x: joyCmd.x, angular_z: joyCmd.z});
             }, 100);
         }
     }

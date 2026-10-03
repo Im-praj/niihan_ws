@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
-"""Bring up NIIHAN in Gazebo Harmonic: starts gz sim with Sonoma Raceway,
-publishes robot_description, starts robot_state_publisher, spawns NIIHAN entity
-at track starting line, launches ros_gz_bridge for sensor/control/camera topics,
-runs 2D SLAM mapping via slam_toolbox, and starts autonomous raceway patrol controller."""
+"""Launch NIIHAN, construction-site simulation, sensors, mapping and navigation."""
 
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo, SetEnvironmentVariable, TimerAction, GroupAction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo, SetEnvironmentVariable, TimerAction
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution, PythonExpression
-from launch_ros.actions import Node, SetRemap
+from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
     pkg_description = get_package_share_directory('niihan_description')
+    use_sim_time = LaunchConfiguration('use_sim_time')
+    use_sim_time_arg = DeclareLaunchArgument(
+        'use_sim_time', default_value='true',
+        description='Use the same ROS clock for simulation, mapping and navigation',
+    )
     xacro_file = os.path.join(pkg_description, 'urdf', 'niihan.urdf.xacro')
 
     robot_description = ParameterValue(
@@ -25,7 +27,7 @@ def generate_launch_description():
 
     world_arg = DeclareLaunchArgument(
         'world',
-        default_value='niihan_patrol_base.world',
+        default_value='niihan_construction_site.sdf',
         description='Gazebo world file to load (relative to niihan_description/worlds)',
     )
 
@@ -55,7 +57,7 @@ def generate_launch_description():
     )
     octomap_arg = DeclareLaunchArgument(
         'octomap',
-        default_value='true',
+        default_value='false',
         description='Run 3D OctoMap mapping from the 3D LiDAR (legacy, default: false)',
     )
     vortex_3d_arg = DeclareLaunchArgument(
@@ -70,7 +72,7 @@ def generate_launch_description():
     )
     rqt_cam_arg = DeclareLaunchArgument(
         'rqt_cam',
-        default_value='true',
+        default_value='false',
         description='Launch rqt_image_view for live front camera stream',
     )
 
@@ -107,7 +109,7 @@ def generate_launch_description():
 
     # Gazebo Sim launch via ros_gz_sim: world file must be first positional argument
     gz_args_sub = PythonExpression([
-        "'", world_path, " -r' if '", LaunchConfiguration('headless'), "' == 'false' else '", world_path, " -s -r'"
+        "'", world_path, " -r --seed ", LaunchConfiguration('seed'), "' if '", LaunchConfiguration('headless'), "' == 'false' else '", world_path, " -s -r --headless-rendering --seed ", LaunchConfiguration('seed'), "'"
     ])
 
     log_world_path = LogInfo(
@@ -137,22 +139,22 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'robot_description': robot_description,
-            'use_sim_time': True,
+            'use_sim_time': use_sim_time,
         }],
     )
 
-    # Spawn NIIHAN robot entity at starting pose
     spawn_entity = Node(
         package='ros_gz_sim',
         executable='create',
         arguments=[
             '-name', 'niihan',
             '-topic', '/robot_description',
-            '-x', '-8.0',
-            '-y', '0.0',
-            '-z', '0.02',
-            '-Y', '0.0',
+            '-x', LaunchConfiguration('spawn_x'),
+            '-y', LaunchConfiguration('spawn_y'),
+            '-z', LaunchConfiguration('spawn_z'),
+            '-Y', LaunchConfiguration('spawn_yaw'),
         ],
+        parameters=[{'use_sim_time': use_sim_time}],
         output='screen',
     )
 
@@ -160,7 +162,7 @@ def generate_launch_description():
     bridge_node = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
-        parameters=[{'use_sim_time': True}],
+        parameters=[{'use_sim_time': use_sim_time}],
         arguments=[
             # Clock & TF
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
@@ -168,8 +170,7 @@ def generate_launch_description():
 
             # Actuation and Odometry
             '/niihan/gazebo_cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
-            '/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
-            '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+                        '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
 
             # LiDARs
@@ -222,13 +223,21 @@ def generate_launch_description():
         output='screen',
     )
 
+    command_arbiter_node = Node(
+        package='niihan_description',
+        executable='command_arbiter',
+        name='command_arbiter',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
+    )
+
     differential_drive_controller = Node(
         package='niihan_description',
         executable='differential_drive_controller',
         name='differential_drive_controller',
         output='screen',
         parameters=[{
-            'use_sim_time': True,
+            'use_sim_time': use_sim_time,
             'wheel_radius': 0.14,
             'track_width': 0.43,
             'max_wheel_velocity': 10.0,
@@ -237,6 +246,13 @@ def generate_launch_description():
 
     # 2D SLAM mapping node (slam_toolbox)
     slam_params_file = os.path.join(pkg_description, 'config', 'slam_toolbox_params.yaml')
+    scan_tf_gate_node = Node(
+        package='niihan_description', executable='scan_tf_gate',
+        name='scan_tf_gate', output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
+        condition=IfCondition(LaunchConfiguration('mapping')),
+    )
+
     slam_toolbox_node = Node(
         package='slam_toolbox',
         executable='async_slam_toolbox_node',
@@ -244,7 +260,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             slam_params_file,
-            {'use_sim_time': True}
+            {'use_sim_time': use_sim_time}
         ],
         condition=IfCondition(LaunchConfiguration('mapping')),
     )
@@ -256,7 +272,7 @@ def generate_launch_description():
         executable='patrol_controller',
         name='patrol_controller',
         output='screen',
-        parameters=[{'use_sim_time': True}],
+        parameters=[{'use_sim_time': use_sim_time}],
         condition=IfCondition(LaunchConfiguration('patrol')),
     )
 
@@ -272,6 +288,7 @@ def generate_launch_description():
         name='rqt_image_view',
         output='screen',
         arguments=['/niihan/sensors/panoramic/front/image_raw'],
+        parameters=[{'use_sim_time': use_sim_time}],
         condition=IfCondition(LaunchConfiguration('rqt_cam')),
     )
 
@@ -281,7 +298,7 @@ def generate_launch_description():
         name='octomap_server',
         output='screen',
         parameters=[{
-            'use_sim_time': True,
+            'use_sim_time': use_sim_time,
             'resolution': 0.08,
             'frame_id': 'map',
             'sensor_model/max_range': 25.0,
@@ -308,7 +325,7 @@ def generate_launch_description():
         name='vortex_3d_mapper',
         output='screen',
         parameters=[{
-            'use_sim_time': True,
+            'use_sim_time': use_sim_time,
             'voxel_resolution': 0.05,
             'max_range': 25.0,
             'min_range': 0.5,
@@ -328,8 +345,11 @@ def generate_launch_description():
         name='cliff_detector',
         output='screen',
         parameters=[{
-            'use_sim_time': True,
+            'use_sim_time': use_sim_time,
             'ground_height_threshold': 0.15,
+            'vertical_fov_min': -0.12217,
+            'vertical_fov_max': 0.90757,
+            'robot_exclusion_radius': 0.45,
             'cliff_check_radius': 6.0,
             'cell_size': 0.5,
             'min_ground_points': 3,
@@ -351,7 +371,7 @@ def generate_launch_description():
             '--frame-id', 'chassis_lidar_link',
             '--child-frame-id', 'niihan/base_footprint/lidar_sensor',
         ],
-        parameters=[{'use_sim_time': True}],
+        parameters=[{'use_sim_time': use_sim_time}],
     )
 
     static_tf_lidar_3d = Node(
@@ -364,35 +384,27 @@ def generate_launch_description():
             '--frame-id', 'mast_lidar_link',
             '--child-frame-id', 'niihan/base_footprint/lidar_3d_sensor',
         ],
-        parameters=[{'use_sim_time': True}],
+        parameters=[{'use_sim_time': use_sim_time}],
     )
 
-    nav2_params_file = os.path.join(pkg_description, 'config', 'nav2_params.yaml')
-    nav2_group = GroupAction(
+    nav2_group = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_description, 'launch', 'niihan_navigation.launch.py')
+        ),
+        launch_arguments={'use_sim_time': use_sim_time}.items(),
         condition=IfCondition(LaunchConfiguration('launch_nav2')),
-        actions=[
-            SetRemap(src='/cmd_vel', dst='/niihan/cmd_vel'),
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(
-                    PathJoinSubstitution([
-                        FindPackageShare('nav2_bringup'),
-                        'launch',
-                        'navigation_launch.py'
-                    ])
-                ),
-                launch_arguments={
-                    'use_sim_time': 'true',
-                    'params_file': nav2_params_file,
-                    'autostart': 'true'
-                }.items()
-            )
-        ]
     )
 
     return LaunchDescription([
+        use_sim_time_arg,
         gz_resource_path,
         ign_resource_path,
         world_arg,
+        DeclareLaunchArgument('seed', default_value='42'),
+        DeclareLaunchArgument('spawn_x', default_value='-12.0'),
+        DeclareLaunchArgument('spawn_y', default_value='0.0'),
+        DeclareLaunchArgument('spawn_z', default_value='0.15'),
+        DeclareLaunchArgument('spawn_yaw', default_value='0.0'),
         headless_arg,
         patrol_arg,
         mapping_arg,
@@ -407,9 +419,11 @@ def generate_launch_description():
         robot_state_publisher_node,
         spawn_entity,
         bridge_node,
+        command_arbiter_node,
         differential_drive_controller,
         static_tf_lidar,
         static_tf_lidar_3d,
+        scan_tf_gate_node,
         slam_toolbox_node,
         octomap_node,
         vortex_3d_mapper_node,

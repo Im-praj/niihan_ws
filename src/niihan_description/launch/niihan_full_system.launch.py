@@ -1,35 +1,42 @@
+"""Simulation, both maps, Nav2 and dashboard on a shared ROS clock."""
 import os
+
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
+
 def generate_launch_description():
-    niihan_desc_dir = get_package_share_directory('niihan_description')
-    niihan_dashboard_dir = get_package_share_directory('niihan_dashboard')
-
-    # Include the main gazebo/system launch file from niihan_description
-    niihan_gazebo_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(niihan_desc_dir, 'launch', 'niihan_gazebo.launch.py')
-        ),
-        launch_arguments={
-            'mapping': 'true',      # Enable mapping/slam by default
-            'launch_nav2': 'true',  # Enable Nav2 by default
-            'use_sim_time': 'true', # Enable simulation time
-            'patrol': 'false',       # Disable autonomous patrol logic to allow manual/dashboard control
-        }.items()
-    )
-
-    # Include the dashboard launch file
-    dashboard_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(niihan_dashboard_dir, 'launch', 'dashboard.launch.py')
-        )
-    )
-
+    description_dir = get_package_share_directory('niihan_description')
+    dashboard_dir = get_package_share_directory('niihan_dashboard')
+    use_sim_time = LaunchConfiguration('use_sim_time')
     return LaunchDescription([
-        niihan_gazebo_launch,
-        dashboard_launch
+        DeclareLaunchArgument('use_sim_time', default_value='true'),
+        DeclareLaunchArgument('world', default_value='niihan_construction_site.sdf'),
+        DeclareLaunchArgument('headless', default_value='false'),
+        DeclareLaunchArgument('seed', default_value='42'),
+        DeclareLaunchArgument('rqt_cam', default_value='false'),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(
+                description_dir, 'launch', 'niihan_gazebo.launch.py',
+            )),
+            launch_arguments={
+                'mapping': 'true',
+                'launch_nav2': 'true',
+                'use_sim_time': use_sim_time,
+                'world': LaunchConfiguration('world'),
+                'headless': LaunchConfiguration('headless'),
+                'seed': LaunchConfiguration('seed'),
+                'rqt_cam': LaunchConfiguration('rqt_cam'),
+                'patrol': 'false',
+            }.items(),
+        ),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(
+                dashboard_dir, 'launch', 'dashboard.launch.py',
+            )),
+            launch_arguments={'use_sim_time': use_sim_time}.items(),
+        ),
     ])

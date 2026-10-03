@@ -20,10 +20,22 @@ def main():
         '/opt/ros/humble/lib',
     ])
 
+    args = sys.argv[1:]
+    has_sim_time = False
+    for arg in args:
+        if 'use_sim_time' in arg:
+            has_sim_time = True
+            break
+
+    ros_args = ['--ros-args', '-r', '/cmd_vel:=/niihan/cmd_vel/manual']
+    if not has_sim_time:
+        ros_args = ['--ros-args', '-p', 'use_sim_time:=true', '-r', '/cmd_vel:=/niihan/cmd_vel/manual']
+
     # GNOME Terminal owns the TTY; teleop keeps the ROS libraries it needs.
     return subprocess.call(
         ['gnome-terminal', '--wait', '--', 'env',
          *[f'{key}={value}' for key, value in teleop_environment.items()],
-         *sys.argv[1:]],
+         *args,
+         *ros_args],
         env=terminal_environment,
     )

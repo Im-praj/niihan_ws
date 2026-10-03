@@ -1,74 +1,94 @@
-# NIIHAN ROS2 Workspace
+# NIIHAN — Construction Site Rover
 
-## Overview
-The `niihan_ws` is a comprehensive ROS2 workspace for the NIIHAN autonomous patrol robot. It provides simulation, mapping, navigation, and dashboard capabilities. The system features advanced 2D and 3D mapping, autonomous frontier exploration, waypoint patrolling, and a robust safety pipeline including synthetic cliff detection.
+ROS 2 software for simulating and evaluating a surveillance rover in a construction-site environment. The workspace combines Gazebo Harmonic, 2D SLAM, point-cloud mapping, Nav2 and a browser dashboard.
 
-## Packages
-* **`niihan_description`**: The core package containing the URDF, Gazebo Harmonic launch files, configurations (Nav2, SLAM Toolbox), and key autonomous control nodes.
-* **`niihan_dashboard`**: Web-based UI and ROS bridge for monitoring robot status, 3D visualization, mission management, and geofencing.
-* **`kiss-icp`**: Used for robust odometry and point cloud registration.
-* **`glim_ros2`**: Additional mapping and localization utilities.
+**Status:** simulation development. Physical deployment and repeatable autonomous missions require the acceptance checks in [Deployment](docs/DEPLOYMENT.md). No hardware readiness claim is made.
 
-## Hardware & Sensor Suite
-NIIHAN is equipped with a rich array of sensors, all bridged to ROS2 via Gazebo Harmonic (`ros_gz_bridge`):
-* **LiDAR**: 2D LiDAR (`/scan`) and 3D Mast LiDAR (Unitree).
-* **Cameras**: Panoramic RGB cameras (front, left, right, rear), PTZ camera, Thermal camera, and Dock fiducial camera.
-* **Depth**: Orbbec and Realsense D435i depth cameras.
-* **State**: IMU, GNSS, and contact bumpers for collision detection.
+## Workspace
 
-## Key Subsystems
+| Component | Purpose |
+| --- | --- |
+| `src/niihan_description` | Robot Xacro, simulation worlds, sensor bridges, mapping and motion nodes |
+| `src/niihan_dashboard` | Map, telemetry, missions, geofencing and browser controls |
+| `src/navigation2` | Existing upstream Nav2 checkout; separate repository |
+| `src/glim`, `src/glim_ros2`, `src/kiss-icp` | Existing optional upstream mapping checkouts |
 
-### 1. Simulation & Bringup
-The primary launch files are located in `niihan_description/launch/`:
-* **`niihan_gazebo.launch.py`**: Spawns the robot in Gazebo Harmonic, loads the `niihan.urdf.xacro`, starts the `ros_gz_bridge` for all sensors, and initializes the differential drive controller.
-* **`mapping.launch.py` / `niihan_mapping.launch.py`**: Master bringup for mapping. Launches simulation, 2D SLAM, 3D Vortex Mapper, Nav2, and RViz2.
-* **`niihan_full_system.launch.py`**: Master launch file that brings up the entire stack, including the `niihan_dashboard`.
+Third-party checkout modifications are preserved. The first-party packages can be built independently; upstream repository revision and dependency locking remain a release task.
 
-### 2. Mapping
-The workspace employs a dual 2D/3D mapping strategy:
-* **2D SLAM**: Handled by `slam_toolbox` (async online mode), publishing the standard `/map` occupancy grid.
-* **3D Point Cloud Mapping (`vortex_3d_mapper.py`)**: A custom node replacing OctoMap. It subscribes to the 3D mast LiDAR, transforms points to the `map` frame (using quaternion math), and accumulates them into a voxel-filtered 3D point cloud map. It periodically saves the result as a `.pcd` file.
+## Requirements and build
 
-### 3. Navigation & Patrol
-Uses the ROS2 **Nav2** stack for path planning, combined with custom high-level Python controllers:
-* **`patrol_controller.py`**: A complex autonomous exploration and patrol node.
-    * *Exploration Phase*: Analyzes the map boundaries and uses frontier exploration or bootstrap behaviors (driving toward the longest clear LiDAR ray) to fully observe the map.
-    * *Patrol Phase*: Once the map is complete, it continuously cycles through predefined waypoints.
-    * *Recovery*: Implements custom fallback behaviors (reversing and rotating towards clearance) to clear obstacles before relying on Nav2's recovery server.
-* **`waypoint_patrol.py`**: A simpler waypoint controller that accepts YAML preset files for user-defined patrol routes.
+Validation environment: ROS 2 Humble, Python 3.10 and Gazebo Sim 8 (Harmonic). This workspace requires the **Harmonic-compatible** `ros_gz_sim` and `ros_gz_bridge`; the default Humble/Gazebo combination must not be assumed compatible.
 
-### 4. Safety Systems
-* **`cliff_detector.py`**: Crucial for safety in multi-level environments. It processes 3D LiDAR data to find areas lacking ground returns (voids/cliffs). These are published as virtual obstacles on `/cliff_scan`, allowing the Nav2 costmap to route the robot safely around drop-offs.
-* **Dashboard Safety Managers**: `safety_manager.py` and `geofence_manager.py` (in `niihan_dashboard`) enforce operational boundaries and constraints from the UI backend.
+Source ROS and resolve dependencies before building. `rosdep install` may need system package privileges.
 
-## Getting Started
-
-### Prerequisites
-* ROS2
-* Gazebo Harmonic
-* Nav2, SLAM Toolbox
-
-### Building the Workspace
 ```bash
 cd ~/niihan_ws
-colcon build --symlink-install
+source /opt/ros/humble/setup.bash
+rosdep install --from-paths src/niihan_description src/niihan_dashboard --ignore-src -r -y
+colcon build --symlink-install --packages-select niihan_description niihan_dashboard
 source install/setup.bash
 ```
 
-### Launching the System
-**Full System (Sim, Nav, Mapping, Dashboard):**
+The build command uses installed Nav2 and SLAM dependencies. It does not rebuild every optional checkout. Generated `build/`, `install/` and `log/` directories are ignored by Git.
+
+## Run
+
+Simulation, 2D/3D mapping, navigation and dashboard:
+
 ```bash
 ros2 launch niihan_description niihan_full_system.launch.py
 ```
 
-**Mapping & Exploration Mode:**
+Open [the local dashboard](http://127.0.0.1:8080). Its HTTP and WebSocket servers bind to localhost by default. The 3D viewer currently fetches Three.js from external CDNs; vendor those dependencies before an offline field release.
+
+Headless simulation:
+
 ```bash
-ros2 launch niihan_description mapping.launch.py rviz:=true autonav:=true
+ros2 launch niihan_description niihan_gazebo.launch.py \
+  headless:=true rqt_cam:=false seed:=42
 ```
 
-## Custom Node Executables Reference
-* `patrol_controller`: Autonomous boundary exploration and waypoint patrol.
-* `waypoint_patrol`: Preset-based waypoint navigation.
-* `vortex_3d_mapper`: 3D voxel-based point cloud accumulator.
-* `cliff_detector`: Synthetic cliff-scan generator for safety.
-* `differential_drive_controller`: Custom kinematic controller for the NIIHAN chassis.
+`headless:=true` enables server-only operation and EGL rendering for camera/LiDAR sensors. Mapping-only evaluation with manual motion:
+
+```bash
+ros2 launch niihan_description mapping.launch.py autonav:=false rviz:=true
+```
+
+The default world is `niihan_construction_site.sdf`. Existing worlds remain selectable with `world:=niihan_patrol_base.world`. `gazebo.launch.py` is a compatibility entrypoint for the canonical simulator launcher.
+
+## Construction-site scene
+
+The default scene renders the supplied chunk5 ground and site geometry as both visible meshes and collisions. A distinct surrounding layout adds a tower crane, unfinished steel building, perimeter fencing, site office, storage container and material stacks. The western access lane contains the spawn at (-12, 0, 0.15).
+
+The supplied meshes are simplified collision geometry with added materials; the original textured visual model was not supplied. The scene is distinct from `niihan_patrol_base.world`, which remains available as a primitive-only fallback.
+
+The default world requires local chunk5 meshes. Their LICENSE declares proprietary ownership; the directory is ignored by Git. A public clone must supply authorized assets or use `world:=niihan_patrol_base.world`. Confirm redistribution rights before publication.
+
+Use the same `seed:=42`, spawn and software versions for repeated evaluation. Identical maps and trajectories are not guaranteed; follow [Repeatability](docs/REPEATABILITY.md).
+
+## Motion and safety
+
+Manual, recovery and navigation commands enter `command_arbiter`, which publishes `/niihan/cmd_vel`. The drive controller limits wheel speeds and publishes the simulator command. The arbiter uses a steady-clock watchdog and clears stale commands on emergency-stop transitions. Automatic patrol is disabled by default.
+
+Cliff scans and geofences are software aids that require environment-specific validation. Physical emergency stop, motor watchdog and braking must work independently of ROS, the browser and host computer.
+
+## Verification
+
+```bash
+./scripts/validate.sh
+```
+
+The script checks both first-party Python test suites, browser map regressions, Xacro expansion and SDF validity. It expects ROS dependencies to be installed. Build and live mission acceptance are separate steps; see [Validation](docs/VALIDATION.md) for results and limitations.
+
+## Documentation
+
+- [Workspace guide](WORKSPACE_GUIDE.md)
+- [Simulation package](src/niihan_description/README.md)
+- [Dashboard package](src/niihan_dashboard/README.md)
+- [Navigation pipeline](src/niihan_description/docs/navigation_pipeline.md)
+- [Deployment checks](docs/DEPLOYMENT.md)
+- [Repeatability procedure](docs/REPEATABILITY.md)
+
+## Licensing
+
+First-party package manifests declare Apache-2.0. Upstream repositories retain their respective licenses. Imported proprietary meshes are not covered by that declaration. Maintainer placeholders and an authoritative repository-wide license must be resolved before a public release.
