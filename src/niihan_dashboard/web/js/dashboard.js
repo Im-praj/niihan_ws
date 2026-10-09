@@ -146,6 +146,8 @@ function connectWebSocket() {
 }
 
 function updateTelemetry(data) {
+    const runtimeEl = document.getElementById('runtime-mode');
+    if (runtimeEl) runtimeEl.textContent = (data.slam || {}).simulation === true ? 'SIMULATION' : 'UNKNOWN';
     const slamEl = document.getElementById('slam-status');
     if (slamEl) slamEl.textContent = 'SLAM: ' + ((data.slam || {}).backend || 'unknown');
     const health = data.hardware_health || {};
