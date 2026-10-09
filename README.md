@@ -82,3 +82,5 @@ TF release pin: geometry2 0.25.24, commit 404b7224d623d614f18fa9738dbf1716403d85
 Mission controls: PAUSE waits for Nav2 cancellation acknowledgement and preserves the current waypoint; RESUME dispatches that waypoint again only after fresh pose, health and AUTO checks. CANCEL ends a paused or running mission. An E-stop or localization fault cancels rather than resumes the mission.
 
 The 3D profile starts at world (-10,0), away from the construction world's raised access-lane edge at x=-12. The fixed map-frame acceptance loop stays on flat ground. The earlier curb attempt is retained as a failed terrain case: wheel rotation is not proof of vehicle motion. Step climbing and traversability require separate terrain detection/control validation. `spawn_x` and `spawn_y` can be overridden explicitly.
+
+The 3D navigation behavior tree checks position arrival on every tick before replanning, with a 0.15 m XY tolerance. This prevents repeated FollowPath successes from being superseded by asynchronous replans in saved-map mode. The dashboard still verifies fresh full XYZ distance <=0.25 m before advancing the mission. No yaw completion condition is used.
