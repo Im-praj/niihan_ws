@@ -1,0 +1,3 @@
+from setuptools import setup, find_packages
+from glob import glob
+setup(name='niihan_slam',version='0.1.0',packages=find_packages(),data_files=[('share/ament_index/resource_index/packages',['resource/niihan_slam']),('share/niihan_slam',['package.xml']),('share/niihan_slam/launch',glob('launch/*.py')),('share/niihan_slam/config',glob('config/*'))],install_requires=['setuptools'],zip_safe=True,maintainer='NIIHAN maintainers',maintainer_email='dev@example.com',description='GLIM 3D SLAM and Nav2 integration',license='Apache-2.0',entry_points={'console_scripts':['map_bridge=niihan_slam.map_bridge:main','saved_localizer=niihan_slam.saved_localizer:main']})

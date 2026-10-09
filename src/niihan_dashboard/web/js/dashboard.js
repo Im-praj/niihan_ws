@@ -146,12 +146,21 @@ function connectWebSocket() {
 }
 
 function updateTelemetry(data) {
+    const slamEl = document.getElementById('slam-status');
+    if (slamEl) slamEl.textContent = 'SLAM: ' + ((data.slam || {}).backend || 'unknown');
+    const health = data.hardware_health || {};
+    const gnss = data.gnss || {};
+    const healthEl = document.getElementById("tel-health");
+    const gnssEl = document.getElementById("tel-gnss");
+    if (healthEl) healthEl.textContent = health.ready ? "Sensors ready" : "Motion inhibited: " + JSON.stringify(health);
+    if (gnssEl) gnssEl.textContent = "GNSS: " + (gnss.quality || "unknown") + (Number.isFinite(gnss.latitude) && Number.isFinite(gnss.longitude) ? " | " + gnss.latitude.toFixed(7) + ", " + gnss.longitude.toFixed(7) : "");
     // Pose
     document.getElementById('tel-x').textContent = data.pose.x.toFixed(2);
     document.getElementById('tel-y').textContent = data.pose.y.toFixed(2);
     document.getElementById('tel-z').textContent = data.pose.z.toFixed(2);
     document.getElementById('tel-yaw').textContent = (data.pose.yaw * 180 / Math.PI).toFixed(1);
     
+    document.getElementById('vel-status').textContent = 'VEL: ' + data.velocity.linear_x.toFixed(2) + ' m/s';
     // Vel
     document.getElementById('tel-vel-x').textContent = data.velocity.linear_x.toFixed(2);
     document.getElementById('tel-vel-z').textContent = data.velocity.angular_z.toFixed(2);

@@ -5,7 +5,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo, SetEnvironmentVariable, TimerAction
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
@@ -23,7 +23,7 @@ def generate_launch_description():
     xacro_file = os.path.join(pkg_description, 'urdf', 'niihan.urdf.xacro')
 
     robot_description = ParameterValue(
-        Command(['xacro ', xacro_file]), value_type=str)
+        Command(['xacro ', xacro_file, ' minimal_sensors:=', LaunchConfiguration('minimal_sensors')]), value_type=str)
 
     world_arg = DeclareLaunchArgument(
         'world',
@@ -163,14 +163,16 @@ def generate_launch_description():
         package='ros_gz_bridge',
         executable='parameter_bridge',
         parameters=[{'use_sim_time': use_sim_time}],
+        remappings=[('/niihan/sensors/lidar/points', PythonExpression(["'/niihan/legacy/lidar/points' if '", LaunchConfiguration('external_stack'), "' == 'true' else '/niihan/sensors/lidar/points'"])), ('/odom', PythonExpression(["'/niihan/wheel/odom' if '", LaunchConfiguration('external_stack'), "' == 'true' else '/odom'"])),
+                    ('/niihan/gnss/fix', PythonExpression(["'/niihan/raw/gnss/fix' if '", LaunchConfiguration('external_stack'), "' == 'true' else '/niihan/gnss/fix'"]))],
         arguments=[
             # Clock & TF
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
-            '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
 
             # Actuation and Odometry
             '/niihan/gazebo_cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
                         '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+            '/niihan/ground_truth@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
 
             # LiDARs
@@ -226,6 +228,7 @@ def generate_launch_description():
     command_arbiter_node = Node(
         package='niihan_description',
         executable='command_arbiter',
+        condition=UnlessCondition(LaunchConfiguration('external_stack')),
         name='command_arbiter',
         output='screen',
         parameters=[{'use_sim_time': use_sim_time}],
@@ -234,12 +237,13 @@ def generate_launch_description():
     differential_drive_controller = Node(
         package='niihan_description',
         executable='differential_drive_controller',
+        condition=UnlessCondition(LaunchConfiguration('external_stack')),
         name='differential_drive_controller',
         output='screen',
         parameters=[{
             'use_sim_time': use_sim_time,
-            'wheel_radius': 0.14,
-            'track_width': 0.43,
+            'wheel_radius': 0.125,
+            'track_width': 0.525,
             'max_wheel_velocity': 10.0,
         }],
     )
@@ -400,6 +404,8 @@ def generate_launch_description():
         gz_resource_path,
         ign_resource_path,
         world_arg,
+        DeclareLaunchArgument('external_stack', default_value='false'),
+        DeclareLaunchArgument('minimal_sensors', default_value='false'),
         DeclareLaunchArgument('seed', default_value='42'),
         DeclareLaunchArgument('spawn_x', default_value='-12.0'),
         DeclareLaunchArgument('spawn_y', default_value='0.0'),
@@ -419,6 +425,10 @@ def generate_launch_description():
         robot_state_publisher_node,
         spawn_entity,
         bridge_node,
+        Node(package='ros_gz_bridge', executable='parameter_bridge',
+             name='gazebo_tf_bridge', arguments=['/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'],
+             parameters=[{'use_sim_time': use_sim_time}],
+             condition=UnlessCondition(LaunchConfiguration('external_stack'))),
         command_arbiter_node,
         differential_drive_controller,
         static_tf_lidar,

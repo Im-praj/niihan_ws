@@ -24,7 +24,8 @@
       <child link="camera_${suffix}_link"/>
       <origin xyz="0.09 0 0.02" rpy="0 0 ${yaw_deg * pi / 180.0}"/>
     </joint>
-    <gazebo reference="camera_${suffix}_link">
+    <xacro:if value="${suffix == 'front' or xacro.arg('minimal_sensors') == 'false'}">
+<gazebo reference="camera_${suffix}_link">
       <sensor type="camera" name="camera_${suffix}_sensor">
         <pose>0 0 0 3.1415926535 0 0</pose>
         <always_on>1</always_on>
@@ -38,6 +39,7 @@
         </camera>
       </sensor>
     </gazebo>
+</xacro:if>
   </xacro:macro>
 
   <xacro:niihan_ring_camera suffix="front" yaw_deg="0"/>
@@ -76,7 +78,8 @@
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
 
-  <gazebo reference="ptz_tilt_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="ptz_tilt_link">
     <sensor type="camera" name="ptz_camera_sensor">
       <always_on>1</always_on>
       <update_rate>20.0</update_rate>
@@ -89,6 +92,7 @@
       </camera>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- ============ Thermal camera (detection-grade) ============ -->
   <link name="thermal_camera_link">
@@ -102,7 +106,8 @@
     <child link="thermal_camera_link"/>
     <origin xyz="0.09 0 -0.03" rpy="0 0 0"/>
   </joint>
-  <gazebo reference="thermal_camera_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="thermal_camera_link">
     <sensor type="camera" name="thermal_camera_sensor">
       <always_on>1</always_on>
       <update_rate>9.0</update_rate>
@@ -115,6 +120,7 @@
       </camera>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- ============ 3D 360 LiDAR (SLAM/localisation + obstacle detection) ============ -->
   <link name="mast_lidar_link">
@@ -128,7 +134,8 @@
     <child link="mast_lidar_link"/>
     <origin xyz="0 0 0.12" rpy="0 0 0"/>
   </joint>
-  <gazebo reference="mast_lidar_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="mast_lidar_link">
     <sensor type="gpu_lidar" name="lidar_3d_sensor">
       <always_on>1</always_on>
       <update_rate>10.0</update_rate>
@@ -148,6 +155,7 @@
       </lidar>
     </sensor>
   </gazebo>
+</xacro:unless>
 
 
   <!-- ============ REAR SENSOR CLUSTER ============ -->
@@ -199,13 +207,13 @@
       <lidar>
         <scan>
           <horizontal>
-            <samples>560</samples>
+            <samples>${360 if xacro.arg('minimal_sensors') == 'true' else 560}</samples>
             <resolution>1</resolution>
             <min_angle>-3.14159</min_angle>
             <max_angle>3.14159</max_angle>
           </horizontal>
           <vertical>
-            <samples>140</samples>
+            <samples>${32 if xacro.arg('minimal_sensors') == 'true' else 140}</samples>
             <resolution>1</resolution>
             <min_angle>-0.12217</min_angle>
             <max_angle>1.5708</max_angle>
@@ -246,7 +254,8 @@
     <origin xyz="0 0 0" rpy="-1.57079632679 0 -1.57079632679"/>
   </joint>
 
-  <gazebo reference="orbbec_color_optical_frame">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="orbbec_color_optical_frame">
     <sensor type="camera" name="orbbec_color_sensor">
       <always_on>1</always_on>
       <update_rate>30.0</update_rate>
@@ -263,8 +272,10 @@
       </camera>
     </sensor>
   </gazebo>
+</xacro:unless>
 
-  <gazebo reference="orbbec_depth_optical_frame">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="orbbec_depth_optical_frame">
     <sensor type="depth_camera" name="orbbec_depth_sensor">
       <always_on>1</always_on>
       <update_rate>30.0</update_rate>
@@ -280,5 +291,6 @@
       </camera>
     </sensor>
   </gazebo>
+</xacro:unless>
 </robot>
 

@@ -15,8 +15,8 @@ from rclpy.action import ActionClient
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
 from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry, OccupancyGrid
-from sensor_msgs.msg import Imu, Image, PointCloud2
-from std_msgs.msg import Bool
+from sensor_msgs.msg import Imu, Image, PointCloud2, NavSatFix
+from std_msgs.msg import Bool, String
 from nav2_msgs.action import NavigateToPose
 from nav2_msgs.msg import CostmapFilterInfo
 from action_msgs.msg import GoalStatus
@@ -49,7 +49,7 @@ class ROSBridgeNode(Node):
         self._state_lock = threading.RLock()
         for name, value in (('global_frame', 'map'), ('robot_base_frame', 'base_footprint'),
                             ('pose_max_age', 1.0), ('pose_future_tolerance', 0.1),
-                            ('pose_freeze_timeout', 3.0),
+                            ('pose_freeze_timeout', 3.0), ('require_health', False), ('slam_cloud_topic', '/vortex/point_cloud_map'),
                             ('goal_verify_xy_tolerance', 0.25), ('goal_verify_yaw_tolerance', 0.30),
                             ('geofence_margin', 0.45)):
             self.declare_parameter(name, value)
@@ -98,9 +98,17 @@ class ROSBridgeNode(Node):
         self.keepout_pub = self.create_publisher(OccupancyGrid, '/niihan/geofence_mask', latched)
         self.filter_info_pub = self.create_publisher(CostmapFilterInfo, '/niihan/geofence_filter_info', latched)
         self.create_subscription(Odometry, '/odom', self.odom_callback, qos_profile_sensor_data)
+        self.telemetry['gnss'] = {'available': False, 'quality': 'unknown'}
+        self.telemetry['hardware_health'] = {'ready': False, 'faults': ['waiting_for_supervisor']}
+        self.create_subscription(NavSatFix, '/niihan/gnss/fix', self.gnss_callback, qos_profile_sensor_data)
+        self.create_subscription(String, '/niihan/gnss/quality', self.gnss_quality_callback, 10)
+        self.create_subscription(String, '/niihan/health', self.hardware_health_callback, 10)
+        self._health_received = 0.0
+        self.telemetry['slam'] = {'backend': 'unknown'}
+        self.create_subscription(String, '/niihan/slam/status', self.slam_status_callback, 10)
         self.create_subscription(Imu, '/niihan/imu/data', self.imu_callback, qos_profile_sensor_data)
         self.create_subscription(OccupancyGrid, '/map', self.map_callback, latched)
-        self.create_subscription(PointCloud2, '/vortex/point_cloud_map', self.pointcloud_callback, qos_profile_sensor_data)
+        self.create_subscription(PointCloud2, self.get_parameter('slam_cloud_topic').value, self.pointcloud_callback, qos_profile_sensor_data)
         self.create_subscription(Image, '/niihan/sensors/panoramic/front/image_raw', self.image_callback, qos_profile_sensor_data)
         self.nav_to_pose_client = ActionClient(self, NavigateToPose, '/navigate_to_pose')
         # A paused /clock must not freeze the manual watchdog or localization stop.
@@ -172,6 +180,33 @@ class ROSBridgeNode(Node):
             return True
         except Exception:
             return False
+
+    @synchronized
+    def gnss_callback(self, msg):
+        valid = msg.status.status >= 0 and all(math.isfinite(value) for value in (msg.latitude, msg.longitude, msg.altitude))
+        self.telemetry['gnss'].update(available=valid, latitude=msg.latitude if valid else None,
+                                      longitude=msg.longitude if valid else None, altitude=msg.altitude if valid else None,
+                                      covariance=list(msg.position_covariance), stamp=msg.header.stamp.sec+msg.header.stamp.nanosec/1e9)
+
+    @synchronized
+    def gnss_quality_callback(self, msg):
+        self.telemetry['gnss']['quality'] = msg.data
+
+    @synchronized
+    def slam_status_callback(self, msg):
+        try:
+            self.telemetry['slam'] = json.loads(msg.data)
+        except (ValueError, TypeError):
+            pass
+
+    def hardware_health_callback(self, msg):
+        self._health_received = time.monotonic()
+        try:
+            status = json.loads(msg.data)
+        except (ValueError, TypeError):
+            return
+        if isinstance(status, dict):
+            self.telemetry['hardware_health'] = status
 
     @synchronized
     def imu_callback(self, msg):
@@ -301,6 +336,9 @@ class ROSBridgeNode(Node):
             return self._response(action, False, str(exc))
 
     def _process_command(self, action, data):
+        if action in ('joystick', 'nav_goal', 'start_mission') and self.get_parameter('require_health').value:
+            if time.monotonic() - self._health_received > 2.0 or not self.telemetry.get('hardware_health', {}).get('ready', False):
+                return self._response(action, False, 'Motion inhibited: required sensor/drive health is unavailable.')
         if action == 'estop':
             self._trigger_estop('E-stop activated by operator.')
         elif action == 'clear_estop':
@@ -533,6 +571,7 @@ class ROSBridgeNode(Node):
                            'velocity': self.telemetry['velocity'], 'mode': self.safety_manager.mode,
                            'estop': self.safety_manager.estop_active, 'mission': self.mission_manager.get_status(),
                            'geofence': self.geofence_manager.get_status(), 'localization': self.telemetry['localization'],
+                           'gnss': self.telemetry['gnss'], 'hardware_health': self.telemetry['hardware_health'], 'slam': self.telemetry.get('slam', {}),
                            'path_history': self.path_history, 'nav2_ready': self.nav2_ready, 'navigation': self.navigation})
 
     @synchronized

@@ -1,0 +1,12 @@
+[submodule "src/glim"]
+	path = src/glim
+	url = https://github.com/koide3/glim.git
+[submodule "src/glim_ros2"]
+	path = src/glim_ros2
+	url = https://github.com/koide3/glim_ros2.git
+[submodule "src/kiss-icp"]
+	path = src/kiss-icp
+	url = https://github.com/PRBonn/kiss-icp.git
+[submodule "src/navigation2"]
+	path = src/navigation2
+	url = https://github.com/ros-navigation/navigation2.git

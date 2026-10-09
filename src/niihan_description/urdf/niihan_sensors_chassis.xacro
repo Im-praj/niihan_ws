@@ -28,7 +28,8 @@
     <child link="gnss_link"/>
     <origin xyz="0 0 0.06" rpy="0 0 0"/>
   </joint>
-  <gazebo reference="gnss_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="gnss_link">
     <sensor name="gnss_sensor" type="navsat">
       <always_on>true</always_on>
       <update_rate>10</update_rate>
@@ -36,6 +37,7 @@
       <gz:frame_id>gnss_link</gz:frame_id>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- 2D LiDAR: publishes sensor_msgs/LaserScan on /scan for navigation/obstacle detection -->
   <link name="chassis_lidar_link">
@@ -57,7 +59,8 @@
     <child link="chassis_lidar_link"/>
     <origin xyz="0 0 0.22" rpy="0 0 0"/>
   </joint>
-  <gazebo reference="chassis_lidar_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="chassis_lidar_link">
     <sensor name="lidar_sensor" type="gpu_lidar">
       <always_on>true</always_on>
       <update_rate>10</update_rate>
@@ -77,6 +80,7 @@
       </lidar>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- IMU -->
   <link name="imu_link">
@@ -127,7 +131,8 @@
     <child link="prox_front_link"/>
     <origin xyz="${chassis_length/2} 0 0" rpy="0 0 0"/>
   </joint>
-  <gazebo reference="prox_front_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="prox_front_link">
     <sensor name="prox_front_sensor" type="gpu_lidar">
       <always_on>true</always_on>
       <update_rate>10</update_rate>
@@ -139,6 +144,7 @@
       </lidar>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- Rear proximity sensor -->
   <link name="prox_rear_link">
@@ -160,7 +166,8 @@
     <child link="prox_rear_link"/>
     <origin xyz="${-chassis_length/2} 0 0" rpy="0 0 3.14159"/>
   </joint>
-  <gazebo reference="prox_rear_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="prox_rear_link">
     <sensor name="prox_rear_sensor" type="gpu_lidar">
       <always_on>true</always_on>
       <update_rate>10</update_rate>
@@ -172,6 +179,7 @@
       </lidar>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- Contact bumper (front) -->
   <link name="bumper_link">
@@ -193,7 +201,8 @@
     <child link="bumper_link"/>
     <origin xyz="${chassis_length/2 + 0.01} 0 -0.02" rpy="0 0 0"/>
   </joint>
-  <gazebo reference="bumper_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="bumper_link">
     <sensor name="bumper_sensor" type="contact">
       <always_on>true</always_on>
       <update_rate>30</update_rate>
@@ -202,6 +211,7 @@
       <gz:frame_id>bumper_link</gz:frame_id>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- Forward work light (fixed white) -->
   <link name="work_light_link">
@@ -285,7 +295,8 @@
     <child link="fiducial_cam_link"/>
     <origin xyz="${-chassis_length/2 + 0.02} 0 0.03" rpy="0 0 3.14159"/>
   </joint>
-  <gazebo reference="fiducial_cam_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="fiducial_cam_link">
     <sensor name="fiducial_camera" type="camera">
       <always_on>true</always_on>
       <update_rate>15</update_rate>
@@ -298,6 +309,7 @@
       </camera>
     </sensor>
   </gazebo>
+</xacro:unless>
 
 
   <!-- ============ Intel RealSense D435i ============ -->
@@ -342,7 +354,8 @@
 
   <!-- Gazebo Sensors -->
   <!-- RGB Camera -->
-  <gazebo reference="d435i_color_optical_frame">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="d435i_color_optical_frame">
     <sensor type="camera" name="d435i_color_sensor">
       <always_on>1</always_on>
       <update_rate>30.0</update_rate>
@@ -362,9 +375,11 @@
       </camera>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- Depth Camera -->
-  <gazebo reference="d435i_depth_optical_frame">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="d435i_depth_optical_frame">
     <sensor type="depth_camera" name="d435i_depth_sensor">
       <always_on>1</always_on>
       <update_rate>30.0</update_rate>
@@ -388,6 +403,7 @@
       </camera>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- IMU -->
   <gazebo reference="d435i_imu_frame">

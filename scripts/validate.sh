@@ -2,11 +2,21 @@
 set -eo pipefail
 workspace_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source /opt/ros/humble/setup.bash
+source "$workspace_root/install/setup.bash"
 set -u
 export PYTHONDONTWRITEBYTECODE=1
 export ROS_LOG_DIR="${ROS_LOG_DIR:-$workspace_root/.validation/ros-log}"
-export PYTHONPATH="$workspace_root/src/niihan_description:$workspace_root/src/niihan_dashboard:${PYTHONPATH:-}"
-python3 -m pytest -q -p no:cacheprovider "$workspace_root/src/niihan_description/test" "$workspace_root/src/niihan_dashboard/test"
+export PYTHONPATH="$workspace_root/src/niihan_description:$workspace_root/src/niihan_dashboard:$workspace_root/src/niihan_bringup:$workspace_root/src/niihan_slam:${PYTHONPATH:-}"
+python3 -m pytest -q -p no:cacheprovider "$workspace_root/src/niihan_description/test" "$workspace_root/src/niihan_dashboard/test" "$workspace_root/src/niihan_bringup/test" "$workspace_root/src/niihan_slam/test"
 node "$workspace_root/src/niihan_dashboard/test/test_web_viewer2d.js"
 xacro "$workspace_root/src/niihan_description/urdf/niihan.urdf.xacro" > /dev/null
 gz sdf -k "$workspace_root/src/niihan_description/worlds/niihan_construction_site.sdf"
+
+gz sdf -k "$workspace_root/src/niihan_description/worlds/niihan_portable_site.sdf"
+xacro "$workspace_root/src/niihan_description/urdf/niihan.urdf.xacro" minimal_sensors:=true > /dev/null
+test -s "$workspace_root/install/niihan_dashboard/share/niihan_dashboard/web/vendor/three.min.js"
+
+core_test="$(mktemp /tmp/niihan-core-test.XXXXXX)"
+trap 'rm -f "$core_test"' EXIT
+gcc -std=c11 -Wall -Wextra -Werror "$workspace_root/src/niihan_bringup/firmware/niihan_core.c" "$workspace_root/src/niihan_bringup/firmware/test_core.c" -lm -o "$core_test"
+"$core_test"
