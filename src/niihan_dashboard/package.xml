@@ -15,6 +15,7 @@
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>nav2_msgs</depend>
+  <exec_depend>lifecycle_msgs</exec_depend>
 
   <exec_depend>action_msgs</exec_depend>
 

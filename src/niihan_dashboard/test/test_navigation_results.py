@@ -202,3 +202,17 @@ def test_cancel_paused_mission_clears_operation_without_waiting_for_result():
     node._stop_navigation('Cancelled')
     assert node.mission_manager.state == 'CANCELLED'
     assert node._active_navigation is None
+
+
+def test_action_endpoint_does_not_imply_active_or_fresh_nav2():
+    import time
+    node, _ = bridge()
+    node.nav_to_pose_client = NS(server_is_ready=lambda: True)
+    now = time.monotonic()
+    node._nav2_lifecycle = {name:{'active':False,'received':now,'requested':now,'future':None}
+                           for name in ('controller','planner','navigator','behavior','smoother')}
+    assert node.check_nav2() is False
+    for state in node._nav2_lifecycle.values():state['active'] = True
+    assert node.check_nav2() is True
+    node._nav2_lifecycle['controller']['received'] = now-5
+    assert node.check_nav2() is False
