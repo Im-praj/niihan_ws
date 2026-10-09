@@ -301,7 +301,8 @@ body {
 }
 
 .bottom-panel {
-    height: 300px;
+    height: 360px;
+    flex-shrink: 0;
     background-color: var(--panel-bg);
     border-top: 1px solid var(--border-color);
     display: flex;
@@ -327,6 +328,7 @@ body {
 }
 
 .mission-content {
+    min-height: 0;
     display: flex;
     flex: 1;
     overflow: hidden;
@@ -378,6 +380,8 @@ body {
 }
 
 .execution-section {
+    min-height: 0;
+    overflow-y: auto;
     flex: 1;
     padding: 10px;
     display: flex;
