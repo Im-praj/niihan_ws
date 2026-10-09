@@ -70,8 +70,8 @@ async def run():
         pairs=[r for r in rows if r.get('kind')=='pose_pair']
         if pairs:
             import numpy as np
-            times=np.array([r['stamp'] for r in pairs]);et=np.array([r['estimate_stamp'] for r in pairs]);truth=np.array([r['truth'][:2] for r in pairs]);valid=(et>=times[0])&(et<=times[-1]);a=np.column_stack([np.interp(et[valid],times,truth[:,i]) for i in range(2)]);b=np.array([r['estimate'][:2] for r in pairs])[valid];error=np.linalg.norm((b-b[0])-(a-a[0]),axis=1)
-            result['relative_position_rmse_m']=float(np.sqrt(np.mean(error**2)));result['relative_position_max_m']=float(error.max());result['samples']=len(error);result['evaluation']='time-aligned relative XY displacement; initial translation removed; no trajectory rotation fitted'
+            times=np.array([r['stamp'] for r in pairs]);et=np.array([r['estimate_stamp'] for r in pairs]);truth=np.array([r['truth'] for r in pairs]);valid=(et>=times[0])&(et<=times[-1]);a=np.column_stack([np.interp(et[valid],times,truth[:,i]) for i in range(3)]);b=np.array([r['estimate'] for r in pairs])[valid];error=np.linalg.norm((b-b[0])-(a-a[0]),axis=1)
+            result['relative_position_rmse_m']=float(np.sqrt(np.mean(error**2)));result['relative_position_max_m']=float(error.max());result['samples']=len(error);result['evaluation']='time-aligned relative XYZ displacement; initial translation removed; no trajectory rotation fitted'
             ty=np.unwrap([r['truth_yaw'] for r in pairs]);ay=np.interp(et[valid],times,ty);by=np.unwrap([r['estimate_yaw'] for r in pairs])[valid]
             vt=et[valid];later=np.searchsorted(vt,vt+1.0);indices=np.flatnonzero(later<len(vt));later=later[indices]
             if len(indices):

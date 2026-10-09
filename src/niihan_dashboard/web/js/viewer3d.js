@@ -189,23 +189,14 @@ class Viewer3D {
         waypoints.forEach(wp => {
             const group = new THREE.Group();
             group.position.set(wp.x, wp.y, wp.z);
-            group.rotation.z = wp.yaw;
             
             // Sphere
             const color = wp.status === "ACTIVE" ? 0xffff00 : (wp.status === "COMPLETED" ? 0x00ff00 :
                 (['FAILED', 'MISSED'].includes(wp.status) ? 0xff4444 : 0x00bcd4));
-            const sphGeo = new THREE.SphereGeometry(0.2, 16, 16);
+            const sphGeo = new THREE.SphereGeometry(0.07, 16, 16);
             const sphMat = new THREE.MeshPhongMaterial({ color: color });
             const sphere = new THREE.Mesh(sphGeo, sphMat);
             group.add(sphere);
-            
-            // Arrow pointing in yaw direction (X axis)
-            const arrGeo = new THREE.ConeGeometry(0.1, 0.3, 16);
-            const arrMat = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-            const arrow = new THREE.Mesh(arrGeo, arrMat);
-            arrow.rotation.z = -Math.PI / 2;
-            arrow.position.x = 0.3;
-            group.add(arrow);
             
             this.wpGroup.add(group);
         });
