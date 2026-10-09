@@ -18,7 +18,7 @@ def stack(context):
     clock={'use_sim_time':True}
     def node(package,executable,name,params=None,**kw):return Node(package=package,executable=executable,name=name,output='screen',parameters=[clock]+(params or []),**kw)
     def include(path,args):return IncludeLaunchDescription(PythonLaunchDescriptionSource(path),launch_arguments=args.items())
-    nodes=[include(os.path.join(desc,'launch','niihan_gazebo.launch.py'),{'world':LaunchConfiguration('world'),'headless':LaunchConfiguration('headless'),'seed':LaunchConfiguration('seed'),'external_stack':'true','minimal_sensors':'true','mapping':'false','launch_nav2':'false','vortex_3d':'false','cliff_detect':'false','rqt_cam':'false','patrol':'false'}),
+    nodes=[include(os.path.join(desc,'launch','niihan_gazebo.launch.py'),{'world':LaunchConfiguration('world'),'spawn_x':LaunchConfiguration('spawn_x'),'spawn_y':LaunchConfiguration('spawn_y'),'headless':LaunchConfiguration('headless'),'seed':LaunchConfiguration('seed'),'external_stack':'true','minimal_sensors':'true','mapping':'false','launch_nav2':'false','vortex_3d':'false','cliff_detect':'false','rqt_cam':'false','patrol':'false'}),
         node('glim_ros','glim_rosnode','glim_ros',[{'config_path':cfg,'dump_on_unload':False}],remappings=[('/tf','/niihan/lio/tf')]),
         node('niihan_slam','tf_filter','lio_tf_filter',[{'mapping':mode=='mapping'}]),
         node('niihan_slam','map_bridge','slam_map_bridge',[{'mapping':mode=='mapping','output_directory':output}]),
@@ -36,4 +36,4 @@ def stack(context):
     return nodes
 
 def generate_launch_description():
-    return LaunchDescription([DeclareLaunchArgument(n,default_value=v) for n,v in [('world','niihan_portable_site.sdf'),('headless','false'),('rviz','true'),('seed','42'),('mode','mapping'),('map_file',''),('initial_x','0.0'),('initial_y','0.0'),('initial_yaw','0.0'),('output_directory','/tmp/niihan_map')]]+[OpaqueFunction(function=stack)])
+    return LaunchDescription([DeclareLaunchArgument(n,default_value=v) for n,v in [('world','niihan_portable_site.sdf'),('headless','false'),('rviz','true'),('seed','42'),('spawn_x','-10.0'),('spawn_y','0.0'),('mode','mapping'),('map_file',''),('initial_x','0.0'),('initial_y','0.0'),('initial_yaw','0.0'),('output_directory','/tmp/niihan_map')]]+[OpaqueFunction(function=stack)])
