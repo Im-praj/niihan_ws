@@ -128,7 +128,7 @@ controller_server:
       plugin: nav2_controller::SimpleGoalChecker
       stateful: true
       xy_goal_tolerance: 0.1
-      yaw_goal_tolerance: 0.25
+      yaw_goal_tolerance: 3.141593
     goal_checker_plugins:
     - general_goal_checker
     min_theta_velocity_threshold: 0.001

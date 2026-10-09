@@ -10,7 +10,7 @@ ROS 2 Humble / Gazebo Harmonic simulation with GLIM CPU LiDAR-inertial SLAM, a p
 | `src/niihan_bringup` | Sensor contracts, drive/sensor health, e-stop/watchdog, hardware hooks |
 | `src/niihan_slam` | GLIM CPU configuration, map projection/save, planar TF, experimental map localization, RViz |
 | `src/niihan_dashboard` | Local browser GUI, live camera, 3D/2D maps and missions |
-| `src/glim`, `src/glim_ros2`, `src/navigation2` | Pinned upstream source submodules |
+| `src/glim`, `src/glim_ros2`, `src/navigation2`, `src/geometry2` | Pinned upstream source submodules |
 | `scripts`, `patches`, `docs` | Build/validation/evidence tooling, compatibility fixes and operating instructions |
 
 ## Supported environment
@@ -27,13 +27,13 @@ GLIM source prerequisites: GTSAM 4.3a0 (`3ad4b4c3cb28394c9597f48fa02dad361c8450e
 git clone --recurse-submodules --branch feat/l2-3d-slam-release https://github.com/Im-praj/niihan_ws.git
 cd niihan_ws
 source /opt/ros/humble/setup.bash
-rosdep install --from-paths src/niihan_description src/niihan_dashboard src/niihan_bringup src/niihan_slam src/glim src/glim_ros2 src/navigation2 --ignore-src -r -y
+rosdep install --from-paths src/niihan_description src/niihan_dashboard src/niihan_bringup src/niihan_slam src/glim src/glim_ros2 src/navigation2 src/geometry2 --ignore-src -r -y
 ./scripts/build_simulation.sh
 source install/setup.bash
 ./scripts/validate.sh
 ```
 
-Submodule commits are pinned by Git and `.gitmodules` supplies public URLs. The supported build compiles the pinned Nav2 checkout with `patches/nav2-humble.patch`, including rejected-transform handling. Installed Nav2 supplies prerequisites; runtime uses the built overlay. KISS-ICP remains optional. GLIM editor patches are preserved but not needed with its editor disabled. Do not build all optional packages indiscriminately.
+Submodule commits are pinned by Git and `.gitmodules` supplies public URLs. The supported build first compiles pinned geometry2 0.25.24 (TF core and ROS bindings), then the pinned Nav2 checkout with `patches/nav2-humble.patch`, including rejected-transform handling. Installed Nav2 supplies prerequisites; runtime uses the built overlay. KISS-ICP remains optional. GLIM editor patches are preserved but not needed with its editor disabled. Do not build all optional packages indiscriminately.
 
 ## Visible simulation
 
@@ -74,3 +74,7 @@ Saved-map localization uses initial-pose-assisted planar registration of 3D poin
 ## Acceptance and evidence
 
 See [release validation](docs/RELEASE_VALIDATION.md). Run the same three-waypoint route after a complete simulation restart at least three times; retain failures, logs, world-pose trajectories, timing, map files, visible screenshots and video. Record source commit, dependency versions and seed. Do not declare an all-milestone pass based only on node startup or unit tests. Hardware, real L2 timestamps/IMU extrinsics, RTK and physical emergency-stop tests require the actual rover.
+
+Goal acceptance verifies XYZ distance within 0.25 m with fresh localization; final yaw is unrestricted. Heading still steers the rover and orients its visualization. Map clicks use the current map-frame rover Z; this can be negative because the LIO map origin begins near the IMU. Nav2 plans XY ground travel and cannot climb to arbitrary Z targets. The dashboard renders the live robot_description URDF, including chassis, suspension, wheels, mast and L2. Both simulation sensor profiles contain exactly one forward RGB camera; obsolete PTZ, side/rear, thermal, depth and fiducial cameras are removed.
+
+TF release pin: geometry2 0.25.24, commit 404b7224d623d614f18fa9738dbf1716403d857e. The installed mixed TF versions (core 0.25.22 / ROS 0.25.23) exhibited a lock-order deadlock between MessageFilter requests and TF insertion. The pinned official core invokes callbacks outside the request mutex. Thread backtraces and simulation acceptance recordings document this issue and its verification.

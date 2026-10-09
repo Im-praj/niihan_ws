@@ -50,7 +50,7 @@ class ROSBridgeNode(Node):
         for name, value in (('global_frame', 'map'), ('robot_base_frame', 'base_footprint'),
                             ('pose_max_age', 1.0), ('pose_future_tolerance', 0.1),
                             ('pose_freeze_timeout', 3.0), ('require_health', False), ('slam_cloud_topic', '/vortex/point_cloud_map'),
-                            ('goal_verify_xy_tolerance', 0.25), ('goal_verify_yaw_tolerance', 0.30),
+                            ('goal_verify_position_tolerance', 0.25),
                             ('geofence_margin', 0.45)):
             self.declare_parameter(name, value)
         self.global_frame = self.get_parameter('global_frame').value
@@ -59,8 +59,7 @@ class ROSBridgeNode(Node):
         # ROS age bounds pose accuracy; wall time separately detects a paused clock.
         self.pose_freeze_timeout = float(self.get_parameter('pose_freeze_timeout').value)
         self.pose_future_tolerance = float(self.get_parameter('pose_future_tolerance').value)
-        self.goal_verify_xy_tolerance = float(self.get_parameter('goal_verify_xy_tolerance').value)
-        self.goal_verify_yaw_tolerance = float(self.get_parameter('goal_verify_yaw_tolerance').value)
+        self.goal_verify_position_tolerance = float(self.get_parameter('goal_verify_position_tolerance').value)
         self.geofence_margin = float(self.get_parameter('geofence_margin').value)
         self.geofence_manager = GeofenceManager()
         self.safety_manager = SafetyManager(geofence_manager=self.geofence_manager)
@@ -80,6 +79,8 @@ class ROSBridgeNode(Node):
         self.map_generation = 0
         self._map_info = None
         self._map_geometry = None
+        self.robot_model_json = None
+        self.robot_model_generation = 0
         self.latest_image = None
         self.image_generation = 0
         self.path_history = []
@@ -109,6 +110,7 @@ class ROSBridgeNode(Node):
         self.create_subscription(Imu, '/niihan/imu/data', self.imu_callback, qos_profile_sensor_data)
         self.create_subscription(OccupancyGrid, '/map', self.map_callback, latched)
         self.create_subscription(PointCloud2, self.get_parameter('slam_cloud_topic').value, self.pointcloud_callback, qos_profile_sensor_data)
+        self.create_subscription(String, '/robot_description', self.robot_description_callback, latched)
         self.create_subscription(Image, '/niihan/sensors/panoramic/front/image_raw', self.image_callback, qos_profile_sensor_data)
         self.nav_to_pose_client = ActionClient(self, NavigateToPose, '/navigate_to_pose')
         # A paused /clock must not freeze the manual watchdog or localization stop.
@@ -116,6 +118,16 @@ class ROSBridgeNode(Node):
         self.create_timer(0.05, self.safety_loop, clock=self._steady_clock)
         self.create_timer(1.0, self.update_path_history, clock=self._steady_clock)
         self.check_nav2()
+
+    def robot_description_callback(self, msg):
+        from niihan_dashboard.robot_model import visual_model
+        try:
+            model_json = json.dumps(visual_model(msg.data))
+            with self._state_lock:
+                self.robot_model_json = model_json
+                self.robot_model_generation += 1
+        except (ValueError, TypeError) as exc:
+            self.get_logger().error(f'Cannot display robot model: {exc}')
 
     def check_nav2(self):
         self.nav2_ready = self.nav_to_pose_client.server_is_ready()
@@ -375,16 +387,16 @@ class ROSBridgeNode(Node):
             self.cmd_vel_pub.publish(msg)
             return None
         elif action == 'nav_goal':
-            coords = self.mission_manager._coordinates(data.get('x'), data.get('y'), yaw=data.get('yaw', 0.0))
-            success, message = self.send_nav_goal(coords['x'], coords['y'], coords['yaw'])
+            coords = self.mission_manager._coordinates(data.get('x'), data.get('y'), data.get('z', self.telemetry['pose']['z']), yaw=None)
+            success, message = self.send_nav_goal(coords['x'], coords['y'], None, coords['z'])
             return self._response(action, success, message)
         elif action in ('add_waypoint', 'update_waypoint', 'delete_waypoint', 'reorder_waypoint', 'clear_mission', 'write_mission'):
             if self._active_navigation is not None:
                 raise ValueError('Cancel navigation and wait for cancellation before editing a mission.')
             if action == 'add_waypoint':
-                self.mission_manager.add_waypoint(data.get('x'), data.get('y'), data.get('z', 0.0), data.get('yaw'))
+                self.mission_manager.add_waypoint(data.get('x'), data.get('y'), data.get('z', self.telemetry['pose']['z']), None)
             elif action == 'update_waypoint':
-                self.mission_manager.update_waypoint(data.get('id'), data.get('x'), data.get('y'), data.get('z', 0.0), data.get('yaw'))
+                self.mission_manager.update_waypoint(data.get('id'), data.get('x'), data.get('y'), data.get('z', self.telemetry['pose']['z']), None)
             elif action == 'delete_waypoint':
                 self.mission_manager.delete_waypoint(data.get('id'))
             elif action == 'reorder_waypoint':
@@ -434,8 +446,8 @@ class ROSBridgeNode(Node):
         return self.geofence_manager.is_valid_mission(targets, self.telemetry['pose'], self.geofence_margin)
 
     @synchronized
-    def send_nav_goal(self, x, y, yaw):
-        target = self.mission_manager._coordinates(x, y, yaw=yaw)
+    def send_nav_goal(self, x, y, yaw=None, z=None):
+        target = self.mission_manager._coordinates(x, y, self.telemetry['pose']['z'] if z is None else z, yaw=None)
         success, message = self._can_start_navigation([target])
         if not success:
             return success, message
@@ -467,6 +479,7 @@ class ROSBridgeNode(Node):
         # pinning long missions to a historical TF sample that leaves the cache.
         goal.pose.pose.position.x = target['x']
         goal.pose.pose.position.y = target['y']
+        goal.pose.pose.position.z = target['z']
         goal.pose.pose.orientation.z = math.sin(target['yaw'] / 2.0)
         goal.pose.pose.orientation.w = math.cos(target['yaw'] / 2.0)
         self._next_request_id += 1
@@ -533,11 +546,11 @@ class ROSBridgeNode(Node):
             self._finish_navigation(operation, 'FAILED', 'Arrival cannot be confirmed: localization is stale.')
             return
         pose = self.telemetry['pose']
-        distance = math.hypot(pose['x'] - target['x'], pose['y'] - target['y'])
-        yaw_error = abs(math.atan2(math.sin(pose['yaw'] - target['yaw']), math.cos(pose['yaw'] - target['yaw'])))
-        if distance > self.goal_verify_xy_tolerance or yaw_error > self.goal_verify_yaw_tolerance:
+        distance = math.dist([pose[axis] for axis in ('x', 'y', 'z')],
+                             [target[axis] for axis in ('x', 'y', 'z')])
+        if distance > self.goal_verify_position_tolerance:
             self._finish_navigation(operation, 'FAILED',
-                                    f'Nav2 reported success away from target ({distance:.2f} m, {yaw_error:.2f} rad); mission stopped.')
+                                    f'Nav2 reported success away from target ({distance:.2f} m XYZ error); mission stopped.')
             return
         if operation['kind'] == 'mission':
             index = operation['index']

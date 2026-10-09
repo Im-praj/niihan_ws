@@ -24,13 +24,12 @@ def bridge():
     node.mission_manager.add_waypoint(4, 5, yaw=0)
     node.mission_manager.write_mission()
     node.mission_manager.start_mission()
-    node.telemetry = {'pose': {'x': 2, 'y': 3, 'yaw': 0}}
-    node.goal_verify_xy_tolerance = 0.2
-    node.goal_verify_yaw_tolerance = 0.25
+    node.telemetry = {'pose': {'x': 2, 'y': 3, 'z': -0.6, 'yaw': 0}}
+    node.goal_verify_position_tolerance = 0.2
     node.navigation = {'state': 'RUNNING', 'message': ''}
     node._update_pose_from_tf = lambda: True
     operation = {'kind': 'mission', 'targets': node.mission_manager.waypoints.copy(),
-                 'index': 0, 'target': {'x': 2, 'y': 3, 'yaw': 0},
+                 'index': 0, 'target': {'x': 2, 'y': 3, 'z': -0.6, 'yaw': 0},
                  'request_id': 1, 'cancelling': False}
     node._active_navigation = operation
     node.get_logger = lambda: NS(info=lambda message: None, error=lambda message: None)
@@ -170,3 +169,18 @@ def test_pose_age_and_paused_clock_have_separate_limits(monkeypatch, ros_now, wa
     node.tf_buffer = NS(lookup_transform=lambda *args: transform)
     monkeypatch.setattr(module.time, 'monotonic', lambda: wall_now)
     assert node._update_pose_from_tf() is expected
+
+
+def test_matching_xyz_completes_regardless_of_yaw():
+    node, operation = bridge()
+    node.telemetry['pose']['yaw'] = 2.8
+    node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)), operation, 1)
+    assert node.dispatched == [1]
+
+
+def test_wrong_z_cannot_complete_even_when_xy_matches():
+    node, operation = bridge()
+    node.telemetry['pose']['z'] += 0.4
+    node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)), operation, 1)
+    assert node.mission_manager.state == 'FAILED'
+    assert not node.dispatched

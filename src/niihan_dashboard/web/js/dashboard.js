@@ -141,6 +141,8 @@ function connectWebSocket() {
                 viewer3d.updatePointCloud(data.data);
                 document.getElementById('map-status-3d').textContent = '3D POINT CLOUD: READY';
             }
+        } else if (data.type === "robot_model") {
+            if (viewer3d) viewer3d.updateRobotModel(data);
         } else if (data.type === "camera") {
             camStream.src = "data:image/jpeg;base64," + data.image;
         } else if (data.type === "mission_write_response" || data.type === 'command_response' || data.type === 'error') {
@@ -239,13 +241,12 @@ function onMapClick(x, y, z) {
     if (interactionMode === "ADD_WP") {
         sendCommand({
             action: "add_waypoint",
-            x: x, y: y, z: 0.0, // force z=0 for ground robot
-            yaw: 0 // default, can be edited
+            x: x, y: y, z: robotPose.z
         });
     } else if (interactionMode === "SET_GOAL") {
         if (!sendCommand({
             action: "nav_goal",
-            x: x, y: y, yaw: 0
+            x: x, y: y, z: robotPose.z
         })) return;
         interactionMode = "NONE";
         document.getElementById('btn-set-goal').textContent = "SET SINGLE GOAL";
@@ -352,12 +353,6 @@ function renderWaypointTable() {
         // Z
         td = document.createElement('td');
         td.innerHTML = `<input type="number" step="0.1" value="${wp.z.toFixed(2)}" onchange="updateWp(${wp.id}, 'z', this.value)">`;
-        tr.appendChild(td);
-        
-        // YAW
-        td = document.createElement('td');
-        let yawDeg = (wp.yaw * 180 / Math.PI).toFixed(1);
-        td.innerHTML = `<input type="number" step="1" value="${yawDeg}" onchange="updateWp(${wp.id}, 'yaw', this.value)">`;
         tr.appendChild(td);
         
         // Status

@@ -29,11 +29,16 @@ class DashboardServer:
             last_map_generation = -1
             last_pc_gen = -1
             last_img_gen = -1
+            last_model_gen = -1
             while True:
                 if self.ros_node:
                     try:
                         telemetry_str = self.ros_node.get_telemetry_json()
                         await safe_send(telemetry_str)
+
+                        if self.ros_node.robot_model_json and self.ros_node.robot_model_generation != last_model_gen:
+                            await safe_send(self.ros_node.robot_model_json)
+                            last_model_gen = self.ros_node.robot_model_generation
 
                         generation, map_json = self.ros_node.get_map_snapshot()
                         if map_json and generation != last_map_generation:

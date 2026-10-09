@@ -41,7 +41,8 @@ async def run():
             await asyncio.sleep(.2)
         log({'kind':'phase','name':'three_waypoint_route'})
         await send('clear_estop');await send('set_mode',mode='AUTO');await send('clear_mission')
-        for x,y in [(1.,0.),(1.,1.),(.1,.1)]:await send('add_waypoint',x=x,y=y,yaw=0.)
+        target_z=tele['pose']['z']
+        for x,y in [(1.,0.),(1.,1.),(.1,.1)]:await send('add_waypoint',x=x,y=y,z=target_z)
         await send('write_mission');route_started=time.monotonic();await send('start_mission')
         deadline=time.monotonic()+180;completed=False
         while time.monotonic()<deadline:
@@ -49,9 +50,9 @@ async def run():
             if state=='COMPLETED':completed=True;break
             if state in ('FAILED','CANCELLED'):break
             await asyncio.sleep(.2)
-        result={'mission_completed':completed,'terminal':tele.get('mission'),'pose':tele.get('pose'),'criteria':{'final_xy_error_m':.25,'max_relative_position_error_m':.20,'run_count':3},'route_elapsed_wall_s':0.}
+        result={'mission_completed':completed,'terminal':tele.get('mission'),'pose':tele.get('pose'),'criteria':{'final_xyz_error_m':.25,'max_relative_position_error_m':.20,'run_count':3},'route_elapsed_wall_s':0.}
         result['route_elapsed_wall_s']=time.monotonic()-route_started
-        pose=tele.get('pose',{});result['final_xy_error_m']=math.hypot(pose.get('x',math.inf)-.1,pose.get('y',math.inf)-.1);result['final_heading_error_rad']=abs(pose.get('yaw',math.inf))
+        pose=tele.get('pose',{});result['final_xy_error_m']=math.hypot(pose.get('x',math.inf)-.1,pose.get('y',math.inf)-.1);result['final_xyz_error_m']=math.dist([pose.get('x',math.inf),pose.get('y',math.inf),pose.get('z',math.inf)],[.1,.1,target_z])
         if not completed:await send('cancel_mission')
         await asyncio.sleep(2)
         # Low-speed manual pulse and asserted e-stop with continuing requests.
@@ -81,7 +82,7 @@ async def run():
                 result['rpe_1s_translation_rmse_m']=float(np.sqrt(np.mean(re**2)));result['rpe_1s_heading_rmse_rad']=float(np.sqrt(np.mean(he**2)))
         stops=[r for r in rows if r.get('kind')=='drive' and estop_wall+.5<r['wall_time']<estop_wall+3.5]
         result['estop_drive_zero']=bool(stops) and all(abs(r['v'])<1e-9 and abs(r['w'])<1e-9 for r in stops)
-        result['acceptance_pass']=completed and result['final_xy_error_m']<=.25 and result.get('relative_position_max_m',math.inf)<=.20 and result['estop_drive_zero']
+        result['acceptance_pass']=completed and result['final_xyz_error_m']<=.25 and result.get('relative_position_max_m',math.inf)<=.20 and result['estop_drive_zero']
         (root/'result.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True)
         rt.cancel()
     st.cancel();n.destroy_node();rclpy.try_shutdown();f.close()

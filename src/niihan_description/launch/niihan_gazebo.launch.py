@@ -190,37 +190,14 @@ def generate_launch_description():
             '/niihan/bumper/contact@ros_gz_interfaces/msg/Contacts[gz.msgs.Contacts',
 
 
-            # Rear Cluster (Unitree & Orbbec)
+            # Unitree L2
             '/niihan/sensors/unitree_lidar@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/niihan/sensors/unitree_lidar/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-            '/niihan/sensors/orbbec/color/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/orbbec/color/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/orbbec/depth/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/orbbec/depth/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            # D435i
-            '/niihan/sensors/d435i/color/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/d435i/color/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/d435i/depth/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/d435i/depth/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/d435i/imu/data@sensor_msgs/msg/Imu[gz.msgs.IMU',
 
-            # Panoramic RGB Cameras
+            # Single forward RGB camera
             '/niihan/sensors/panoramic/front/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
             '/niihan/sensors/panoramic/front/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/panoramic/right/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/panoramic/right/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/panoramic/rear/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/panoramic/rear/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/panoramic/left/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/panoramic/left/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
 
-            # PTZ & Thermal & Dock Cameras
-            '/niihan/sensors/ptz/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/ptz/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/thermal/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/thermal/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/dock/fiducial/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/dock/fiducial/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
         ],
         output='screen',
     )

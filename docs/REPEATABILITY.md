@@ -16,7 +16,7 @@ Before each run, archive the exact command, `git status`, first-party source dif
 6. Save the 2D map with `ros2 run nav2_map_server map_saver_cli -f <run>/map` and stop gracefully to save the 3D map.
 7. Repeat from a fresh simulator process and fresh run directory three times.
 
-Define acceptance tolerances before running: completion count, final position/yaw error, route deviation, latency and obstacle clearance. Compare aligned maps and trajectories numerically. File hashes can establish input equality; they cannot establish behavioural equality when timestamps or map serialization differ.
+Define acceptance tolerances before running: completion count, final XYZ position error (yaw is unrestricted), route deviation, latency and obstacle clearance. Compare aligned maps and trajectories numerically. File hashes can establish input equality; they cannot establish behavioural equality when timestamps or map serialization differ.
 
 ## Implemented checks
 

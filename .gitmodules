@@ -10,3 +10,6 @@
 [submodule "src/navigation2"]
 	path = src/navigation2
 	url = https://github.com/ros-navigation/navigation2.git
+[submodule "src/geometry2"]
+	path = src/geometry2
+	url = https://github.com/ros2/geometry2.git
