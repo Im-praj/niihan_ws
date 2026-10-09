@@ -140,14 +140,25 @@ class Viewer3D {
             }
             links.set(link.name, group);
         }
+        this.robotJoints = new Map();
         for (const joint of model.joints) {
             const child = links.get(joint.child);
             transform(child, joint);
+            this.robotJoints.set(joint.name, {child, axis:new THREE.Vector3(...(joint.axis || [1,0,0])).normalize(), rest:child.quaternion.clone(), kind:joint.kind});
             links.get(joint.parent).add(child);
         }
         this.clearGroup(this.robotMarker);
         this.robotMarker.add(links.get(model.root));
         this.robotMarker.name = model.name;
+    }
+
+    updateJointStates(positions) {
+        if (!this.robotJoints) return;
+        for (const [name, angle] of Object.entries(positions)) {
+            const joint = this.robotJoints.get(name);
+            if (!joint || !Number.isFinite(angle) || !['continuous','revolute'].includes(joint.kind)) continue;
+            joint.child.quaternion.copy(joint.rest).multiply(new THREE.Quaternion().setFromAxisAngle(joint.axis, angle));
+        }
     }
 
     updateRobotPose(x, y, z, yaw) {

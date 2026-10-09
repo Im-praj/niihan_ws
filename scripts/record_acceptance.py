@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os,sys,time,subprocess,signal,json,urllib.request
 from pathlib import Path
+os.umask(0o077)
 workspace=Path(sys.argv[1]);root=Path(sys.argv[2]);root.mkdir(parents=True,exist_ok=False)
 env=os.environ.copy();env.update(GZ_PARTITION='niihan_'+root.name,ROS_DOMAIN_ID='61',ROS_HOME=str(root/'ros_home'),ROS_LOG_DIR=str(root/'ros'))
 (root/'source.txt').write_text(subprocess.check_output(['git','-C',str(workspace),'rev-parse','HEAD'],text=True)+subprocess.check_output(['git','-C',str(workspace),'submodule','status'],text=True)+subprocess.check_output(['git','-C',str(workspace),'status','--short'],text=True))

@@ -15,7 +15,7 @@ from rclpy.action import ActionClient
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
 from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry, OccupancyGrid
-from sensor_msgs.msg import Imu, Image, PointCloud2, NavSatFix
+from sensor_msgs.msg import JointState, Imu, Image, PointCloud2, NavSatFix
 from std_msgs.msg import Bool, String
 from nav2_msgs.action import NavigateToPose
 from nav2_msgs.msg import CostmapFilterInfo
@@ -81,6 +81,8 @@ class ROSBridgeNode(Node):
         self._map_geometry = None
         self.robot_model_json = None
         self.robot_model_generation = 0
+        self.joint_state_json = None
+        self.joint_state_generation = 0
         self.latest_image = None
         self.image_generation = 0
         self.path_history = []
@@ -110,6 +112,7 @@ class ROSBridgeNode(Node):
         self.create_subscription(Imu, '/niihan/imu/data', self.imu_callback, qos_profile_sensor_data)
         self.create_subscription(OccupancyGrid, '/map', self.map_callback, latched)
         self.create_subscription(PointCloud2, self.get_parameter('slam_cloud_topic').value, self.pointcloud_callback, qos_profile_sensor_data)
+        self.create_subscription(JointState, '/joint_states', self.joint_state_callback, qos_profile_sensor_data)
         self.create_subscription(String, '/robot_description', self.robot_description_callback, latched)
         self.create_subscription(Image, '/niihan/sensors/panoramic/front/image_raw', self.image_callback, qos_profile_sensor_data)
         self.nav_to_pose_client = ActionClient(self, NavigateToPose, '/navigate_to_pose')
@@ -118,6 +121,12 @@ class ROSBridgeNode(Node):
         self.create_timer(0.05, self.safety_loop, clock=self._steady_clock)
         self.create_timer(1.0, self.update_path_history, clock=self._steady_clock)
         self.check_nav2()
+
+    def joint_state_callback(self, msg):
+        positions = {name:position for name,position in zip(msg.name,msg.position) if math.isfinite(position)}
+        with self._state_lock:
+            self.joint_state_json = json.dumps({'type':'joint_states','positions':positions})
+            self.joint_state_generation += 1
 
     def robot_description_callback(self, msg):
         from niihan_dashboard.robot_model import visual_model
@@ -485,7 +494,11 @@ class ROSBridgeNode(Node):
         handle = operation.get('handle')
         if handle is not None and not operation.get('cancel_sent'):
             operation['cancel_sent'] = True
-            handle.cancel_goal_async()
+            try:
+                handle.cancel_goal_async()
+            except Exception as exc:
+                self._trigger_estop(f'Mission pause cancellation failed: {exc}')
+                return False, 'Pause failed; emergency stop asserted.'
         self.cmd_vel_pub.publish(Twist())
         return True, 'Mission pause requested.'
 

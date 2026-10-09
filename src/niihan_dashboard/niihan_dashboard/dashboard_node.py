@@ -30,6 +30,7 @@ class DashboardServer:
             last_pc_gen = -1
             last_img_gen = -1
             last_model_gen = -1
+            last_joints_gen = -1
             while True:
                 if self.ros_node:
                     try:
@@ -39,6 +40,10 @@ class DashboardServer:
                         if self.ros_node.robot_model_json and self.ros_node.robot_model_generation != last_model_gen:
                             await safe_send(self.ros_node.robot_model_json)
                             last_model_gen = self.ros_node.robot_model_generation
+
+                        if self.ros_node.joint_state_json and self.ros_node.joint_state_generation != last_joints_gen:
+                            await safe_send(self.ros_node.joint_state_json)
+                            last_joints_gen = self.ros_node.joint_state_generation
 
                         generation, map_json = self.ros_node.get_map_snapshot()
                         if map_json and generation != last_map_generation:

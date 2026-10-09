@@ -107,6 +107,8 @@ function connectWebSocket() {
 
     ws.onclose = () => {
         isConnected = false;
+        camStream.removeAttribute("src");
+        camStream.alt = "Camera disconnected";
         elConn.textContent = "DISCONNECTED";
         elConn.className = "status-badge error";
         document.getElementById('btn-start-mission').disabled = true;
@@ -145,7 +147,10 @@ function connectWebSocket() {
             }
         } else if (data.type === "robot_model") {
             if (viewer3d) viewer3d.updateRobotModel(data);
+        } else if (data.type === "joint_states") {
+            if (viewer3d) viewer3d.updateJointStates(data.positions);
         } else if (data.type === "camera") {
+            camStream.alt = "Forward camera live";
             camStream.src = "data:image/jpeg;base64," + data.image;
         } else if (data.type === "mission_write_response" || data.type === 'command_response' || data.type === 'error') {
             showCommandStatus(data.message, data.success === true);

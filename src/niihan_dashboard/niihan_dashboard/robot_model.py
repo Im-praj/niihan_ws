@@ -31,7 +31,8 @@ def visual_model(xml):
             visuals.append({**origin(visual),'geometry':spec,'rgba':rgba})
         links.append({'name':link.get('name'),'visuals':visuals})
     joints=[{'name':j.get('name'),'parent':j.find('parent').get('link'),
-             'child':j.find('child').get('link'),**origin(j)} for j in root.findall('joint')]
+             'child':j.find('child').get('link'),'kind':j.get('type'),
+             'axis':vector(j.find('axis').get('xyz'),[1.,0.,0.]) if j.find('axis') is not None else [1.,0.,0.],**origin(j)} for j in root.findall('joint')]
     children={j['child'] for j in joints};roots=[l['name'] for l in links if l['name'] not in children]
     if len(roots)!=1:raise ValueError('URDF must have one root link')
     return {'type':'robot_model','name':root.get('name'),'root':roots[0],'links':links,'joints':joints}
