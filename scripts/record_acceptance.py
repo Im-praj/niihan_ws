@@ -29,7 +29,10 @@ try:
  print('probe exit',test.returncode,flush=True)
  if (root/'result.json').exists():
   result=json.loads((root/'result.json').read_text());print(json.dumps(result,indent=2),flush=True)
-  exit_code=0 if test.returncode==0 and result.get('acceptance_pass') else 1
+  manifest=json.loads((root/'runtime_manifest.json').read_text())
+  checks={'no_duplicate_nodes':not manifest['duplicate_nodes'], 'one_clock_publisher':len(manifest['clock_publishers'])==1, 'one_camera_publisher':len(manifest['camera_publishers'])==1, 'unique_tf_parents':all(len(v)==1 for v in manifest['tf_parents'].values()), 'nav2_active':len(manifest['lifecycle'])==5 and all(v=='active' for v in manifest['lifecycle'].values())}
+  (root/'runtime_checks.json').write_text(json.dumps(checks,indent=2))
+  exit_code=0 if test.returncode==0 and result.get('acceptance_pass') and all(checks.values()) else 1
  (root/'run_status.json').write_text(json.dumps({'probe_exit':test.returncode,'acceptance_pass':exit_code==0}))
 finally:
  for p in [launch,video]:

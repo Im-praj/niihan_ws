@@ -24,7 +24,7 @@ def stack(context):
         node('niihan_slam','map_bridge','slam_map_bridge',[{'mapping':mode=='mapping','output_directory':output}]),
         node('niihan_description','command_arbiter','command_arbiter'),
         node('niihan_bringup','gazebo_drive','gazebo_drive'),
-        node('niihan_bringup','sensor_adapter','sensor_adapter',[{'gravity_aligned_height':True,'scan_frame':'base_nav'}]),
+        node('niihan_bringup','sensor_adapter','sensor_adapter',[{'gravity_aligned_height':True,'scan_frame':'base_nav','relay_camera':False}]),
         node('niihan_bringup','health_supervisor','health_supervisor',[{'sensor_timeout':2.0}]),
         node('niihan_bringup','motion_gateway','motion_gateway',[{'drive_enabled':True}]),
         include(os.path.join(desc,'launch','niihan_navigation.launch.py'),{'use_sim_time':'true','params_file':os.path.join(share,'config','nav2_3d.yaml'),'bt_xml':os.path.join(share,'config','navigate_to_pose_position.xml')}),

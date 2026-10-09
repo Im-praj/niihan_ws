@@ -52,8 +52,10 @@ class SensorAdapter(Node):
         self.cloud_pub = self.create_publisher(PointCloud2, '/niihan/sensors/lidar/points', qos_profile_sensor_data)
         self.scan_pub = self.create_publisher(LaserScan, '/scan', qos_profile_sensor_data)
         self.create_subscription(PointCloud2, cloud, self.cloud, qos_profile_sensor_data)
-        self.camera_pub = self.create_publisher(Image, '/niihan/sensors/panoramic/front/image_raw', qos_profile_sensor_data)
-        self.create_subscription(Image, parameter(self, 'camera_topic', '/niihan/raw/camera/image_raw'), self.camera_pub.publish, qos_profile_sensor_data)
+        # Gazebo already bridges the sole forward camera onto the dashboard topic.
+        if parameter(self, 'relay_camera', True):
+            self.camera_pub = self.create_publisher(Image, '/niihan/sensors/panoramic/front/image_raw', qos_profile_sensor_data)
+            self.create_subscription(Image, parameter(self, 'camera_topic', '/niihan/raw/camera/image_raw'), self.camera_pub.publish, qos_profile_sensor_data)
 
     def cloud(self, msg):
         try:

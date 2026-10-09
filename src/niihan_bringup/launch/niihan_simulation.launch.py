@@ -4,7 +4,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, Command
+from launch.substitutions import PythonExpression, LaunchConfiguration, Command
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -42,6 +42,7 @@ def generate_launch_description():
         IncludeLaunchDescription(PythonLaunchDescriptionSource(os.path.join(package,'launch','niihan_application.launch.py')),launch_arguments={
             'use_sim_time':'true','drive_enabled':LaunchConfiguration('drive_enabled'),'require_gnss':LaunchConfiguration('require_gnss'),'require_cliff':LaunchConfiguration('require_cliff'),
             'cloud_topic': '/niihan/raw/lidar/points',
+            'relay_camera':PythonExpression(["'false' if '",LaunchConfiguration('backend'),"' == 'gazebo' else 'true'"]),
             **{n:LaunchConfiguration(n) for n in ['datum_latitude','datum_longitude','datum_altitude']},
         }.items()),
     ])

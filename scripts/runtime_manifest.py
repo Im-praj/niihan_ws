@@ -17,7 +17,7 @@ for topic,typ in [('/niihan/sensors/unitree_lidar/points',PointCloud2),('/niihan
 end=time.monotonic()+5
 while time.monotonic()<end:rclpy.spin_once(n,timeout_sec=.1)
 node_counts=collections.Counter('/'+ns.strip('/')+'/'+name if ns!='/' else '/'+name for name,ns in n.get_node_names_and_namespaces())
-result={'nodes':dict(node_counts),'duplicate_nodes':[k for k,v in node_counts.items() if v>1],'clock_publishers':[{'name':i.node_name,'namespace':i.node_namespace} for i in n.get_publishers_info_by_topic('/clock')],'tf_parents':{k:sorted(v) for k,v in parents.items()},'sensor_headers':headers,'rates_wall_hz':{k:v/(time.monotonic()-start) for k,v in counts.items()},'lifecycle':{}}
+result={'nodes':dict(node_counts),'duplicate_nodes':[k for k,v in node_counts.items() if v>1],'clock_publishers':[{'name':i.node_name,'namespace':i.node_namespace} for i in n.get_publishers_info_by_topic('/clock')],'tf_parents':{k:sorted(v) for k,v in parents.items()},'camera_publishers':[{'name':i.node_name,'namespace':i.node_namespace} for i in n.get_publishers_info_by_topic('/niihan/sensors/panoramic/front/image_raw')],'sensor_headers':headers,'rates_wall_hz':{k:v/(time.monotonic()-start) for k,v in counts.items()},'lifecycle':{}}
 for name in ['controller_server','planner_server','bt_navigator','behavior_server','velocity_smoother']:
  client=n.create_client(GetState,'/'+name+'/get_state')
  if not client.wait_for_service(timeout_sec=.3):continue
