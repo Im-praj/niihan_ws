@@ -20,6 +20,7 @@ from std_msgs.msg import Bool, String
 from nav2_msgs.action import NavigateToPose
 from nav2_msgs.msg import CostmapFilterInfo
 from action_msgs.msg import GoalStatus
+from lifecycle_msgs.srv import GetState
 from tf2_ros import Buffer, TransformListener
 from cv_bridge import CvBridge
 
@@ -116,6 +117,8 @@ class ROSBridgeNode(Node):
         self.create_subscription(String, '/robot_description', self.robot_description_callback, latched)
         self.create_subscription(Image, '/niihan/sensors/panoramic/front/image_raw', self.image_callback, qos_profile_sensor_data)
         self.nav_to_pose_client = ActionClient(self, NavigateToPose, '/navigate_to_pose')
+        self._nav2_lifecycle = {name:{'client':self.create_client(GetState,'/'+name+'/get_state'), 'active':False, 'received':0., 'requested':0., 'future':None}
+                                for name in ('controller_server','planner_server','bt_navigator','behavior_server','velocity_smoother')}
         # A paused /clock must not freeze the manual watchdog or localization stop.
         self._steady_clock = Clock(clock_type=ClockType.STEADY_TIME)
         self.create_timer(0.05, self.safety_loop, clock=self._steady_clock)
@@ -138,9 +141,39 @@ class ROSBridgeNode(Node):
         except (ValueError, TypeError) as exc:
             self.get_logger().error(f'Cannot display robot model: {exc}')
 
+    @synchronized
     def check_nav2(self):
-        self.nav2_ready = self.nav_to_pose_client.server_is_ready()
+        now = time.monotonic()
+        for state in self._nav2_lifecycle.values():
+            if now-state['requested'] < 1.0:
+                continue
+            pending = state['future']
+            if pending is not None and not pending.done():
+                if now-state['requested'] <= 2.0:
+                    continue
+                pending.cancel()
+            state['requested'] = now
+            if state['client'].service_is_ready():
+                future = state['client'].call_async(GetState.Request())
+                state['future'] = future
+                future.add_done_callback(lambda f, s=state:self._nav2_state_result(f,s))
+            else:
+                state['active'] = False
+        self.nav2_ready = self.nav_to_pose_client.server_is_ready() and all(
+            state['active'] and now-state['received'] < 3.0 for state in self._nav2_lifecycle.values())
         return self.nav2_ready
+
+    @synchronized
+    def _nav2_state_result(self, future, state):
+        if state['future'] is not future:
+            return
+        try:
+            response = future.result()
+            state['active'] = response is not None and response.current_state.id == 3
+        except Exception:
+            state['active'] = False
+        state['received'] = time.monotonic()
+        state['future'] = None
 
     def pointcloud_callback(self, msg):
         now = time.monotonic()
