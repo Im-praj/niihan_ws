@@ -454,3 +454,5 @@ body {
         display: flex;
     }
 }
+
+#tel-health, #tel-gnss { overflow-wrap: anywhere; }

@@ -20,6 +20,21 @@ index ac4b7a6a..c9e25b14 100644
    }
    return false;
  }
+diff --git a/nav2_regulated_pure_pursuit_controller/src/regulated_pure_pursuit_controller.cpp b/nav2_regulated_pure_pursuit_controller/src/regulated_pure_pursuit_controller.cpp
+index 47d8e14b..334eb59d 100644
+--- a/nav2_regulated_pure_pursuit_controller/src/regulated_pure_pursuit_controller.cpp
++++ b/nav2_regulated_pure_pursuit_controller/src/regulated_pure_pursuit_controller.cpp
+@@ -738,7 +738,9 @@ nav_msgs::msg::Path RegulatedPurePursuitController::transformGlobalPlan(
+       stamped_pose.header.frame_id = global_plan_.header.frame_id;
+       stamped_pose.header.stamp = robot_pose.header.stamp;
+       stamped_pose.pose = global_plan_pose.pose;
+-      transformPose(costmap_ros_->getBaseFrameID(), stamped_pose, transformed_pose);
++      if (!transformPose(costmap_ros_->getBaseFrameID(), stamped_pose, transformed_pose)) {
++        throw nav2_core::PlannerException("Cannot transform global path into navigation frame");
++      }
+       transformed_pose.pose.position.z = 0.0;
+       return transformed_pose;
+     };
 diff --git a/nav2_route/src/node_spatial_tree.cpp b/nav2_route/src/node_spatial_tree.cpp
 index 19f37dda..dd0bc46a 100644
 --- a/nav2_route/src/node_spatial_tree.cpp

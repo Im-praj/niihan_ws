@@ -111,6 +111,10 @@ function connectWebSocket() {
         elConn.className = "status-badge error";
         document.getElementById('btn-start-mission').disabled = true;
         nav2Ready = false;
+        elLoc.textContent = 'LOC: DISCONNECTED';elLoc.className = 'status-badge error';
+        document.getElementById('slam-status').textContent = 'SLAM: DISCONNECTED';
+        document.getElementById('tel-health').textContent = 'Supervisor disconnected';
+        document.getElementById('vel-status').textContent = 'VEL: UNKNOWN';
         elNav.textContent = 'NAV2: UNKNOWN';
         elNav.className = 'status-badge error';
         document.getElementById('map-status-2d').textContent = '2D MAP: DISCONNECTED — DISPLAYING LAST MAP';
@@ -154,7 +158,7 @@ function updateTelemetry(data) {
     const gnss = data.gnss || {};
     const healthEl = document.getElementById("tel-health");
     const gnssEl = document.getElementById("tel-gnss");
-    if (healthEl) healthEl.textContent = health.ready ? "Sensors ready" : "Motion inhibited: " + JSON.stringify(health);
+    if (healthEl) healthEl.textContent = health.ready ? "Sensors ready" : "Motion inhibited: " + ((health.faults || []).join(", ") || "waiting for supervisor");
     if (gnssEl) gnssEl.textContent = "GNSS: " + (gnss.quality || "unknown") + (Number.isFinite(gnss.latitude) && Number.isFinite(gnss.longitude) ? " | " + gnss.latitude.toFixed(7) + ", " + gnss.longitude.toFixed(7) : "");
     // Pose
     document.getElementById('tel-x').textContent = data.pose.x.toFixed(2);

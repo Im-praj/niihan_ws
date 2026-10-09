@@ -70,7 +70,7 @@ class ROSBridgeNode(Node):
             'pose': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': 0.0},
             'velocity': {'linear_x': 0.0, 'linear_y': 0.0, 'angular_z': 0.0},
             'imu': {'ax': 0.0, 'ay': 0.0, 'az': 0.0, 'wx': 0.0, 'wy': 0.0, 'wz': 0.0},
-            'localization': {'source': 'TF', 'health': 'UNAVAILABLE', 'confidence': 0.0, 'age': None},
+            'localization': {'source': 'TF', 'health': 'UNAVAILABLE', 'confidence': None, 'age': None},
         }
         self.pose_valid = False
         self._last_tf_stamp = None
@@ -153,7 +153,7 @@ class ROSBridgeNode(Node):
         steady_now = time.monotonic()
         self.pose_valid = False
         localization = self.telemetry['localization']
-        localization.update(health='UNAVAILABLE', confidence=0.0, age=None)
+        localization.update(health='UNAVAILABLE', confidence=None, age=None)
         clock_reset = self._last_ros_time is not None and now < self._last_ros_time - self.pose_future_tolerance
         self._last_ros_time = now
         try:
@@ -175,7 +175,7 @@ class ROSBridgeNode(Node):
                 return False
             _, _, yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)
             self.telemetry['pose'].update(x=translation.x, y=translation.y, z=translation.z, yaw=yaw)
-            localization.update(health='OK', confidence=1.0)
+            localization.update(health='OK', confidence=None)
             self.pose_valid = True
             return True
         except Exception:

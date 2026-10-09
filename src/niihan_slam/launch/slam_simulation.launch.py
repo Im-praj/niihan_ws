@@ -5,6 +5,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument,IncludeLaunchDescription,OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
 from launch_ros.actions import Node
 
 def stack(context):
@@ -27,12 +28,12 @@ def stack(context):
         node('niihan_bringup','health_supervisor','health_supervisor',[{'sensor_timeout':2.0}]),
         node('niihan_bringup','motion_gateway','motion_gateway',[{'drive_enabled':True}]),
         include(os.path.join(desc,'launch','niihan_navigation.launch.py'),{'use_sim_time':'true','params_file':os.path.join(share,'config','nav2_3d.yaml')}),
+        node('rviz2','rviz2','rviz2',arguments=['-d',os.path.join(share,'config','slam.rviz')],condition=IfCondition(LaunchConfiguration('rviz'))),
         node('niihan_dashboard','dashboard_node','niihan_dashboard_node',[{'require_health':True,'slam_cloud_topic':'/niihan/slam/map_cloud'}])]
-    # Raw simulator scan and mast cloud remain available for obstacle health; no
-    # sensor_adapter duplicate scan/camera publishers are introduced.
+    # Only the common adapter publishes the navigation scan in this profile.
     if mode=='localization':
         nodes.append(node('niihan_slam','saved_localizer','saved_map_localizer',[{'map_file':LaunchConfiguration('map_file'),'initial_x':float(LaunchConfiguration('initial_x').perform(context)),'initial_y':float(LaunchConfiguration('initial_y').perform(context)),'initial_yaw':float(LaunchConfiguration('initial_yaw').perform(context))}]))
     return nodes
 
 def generate_launch_description():
-    return LaunchDescription([DeclareLaunchArgument(n,default_value=v) for n,v in [('world','niihan_portable_site.sdf'),('headless','false'),('seed','42'),('mode','mapping'),('map_file',''),('initial_x','0.0'),('initial_y','0.0'),('initial_yaw','0.0'),('output_directory','/tmp/niihan_map')]]+[OpaqueFunction(function=stack)])
+    return LaunchDescription([DeclareLaunchArgument(n,default_value=v) for n,v in [('world','niihan_portable_site.sdf'),('headless','false'),('rviz','true'),('seed','42'),('mode','mapping'),('map_file',''),('initial_x','0.0'),('initial_y','0.0'),('initial_yaw','0.0'),('output_directory','/tmp/niihan_map')]]+[OpaqueFunction(function=stack)])

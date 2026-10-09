@@ -2,27 +2,38 @@
 
 ROS 2 Humble / Gazebo Harmonic simulation with GLIM CPU LiDAR-inertial SLAM, a projected occupancy grid, Nav2 waypoint missions and a local browser dashboard. The portable simulation uses the Unitree L2 scan geometry and chassis IMU. It is a simulation model, not a validated physical L2 driver/calibration.
 
+## Source structure
+
+| Path | Role |
+|---|---|
+| `src/niihan_description` | Robot, portable world, Gazebo bridges, arbitration |
+| `src/niihan_bringup` | Sensor contracts, drive/sensor health, e-stop/watchdog, hardware hooks |
+| `src/niihan_slam` | GLIM CPU configuration, map projection/save, planar TF, experimental map localization, RViz |
+| `src/niihan_dashboard` | Local browser GUI, live camera, 3D/2D maps and missions |
+| `src/glim`, `src/glim_ros2`, `src/navigation2` | Pinned upstream source submodules |
+| `scripts`, `patches`, `docs` | Build/validation/evidence tooling, compatibility fixes and operating instructions |
+
 ## Supported environment
 
 Ubuntu 22.04 amd64, ROS 2 Humble, Gazebo Sim 8 (Harmonic), Python 3.10, a working graphical display and OpenGL rendering. Windows/macOS/native ROS distributions are not validated. A fresh source clone can be tested on this host; that does not certify every GPU or clean operating-system installation.
 
 Install ROS Humble and Gazebo Harmonic from their official instructions. Use the Harmonic-compatible `ros-humble-ros-gzharmonic` bridge, not a mismatched default Gazebo bridge. Install Nav2 (`ros-humble-navigation2`, `ros-humble-nav2-bringup`), Xacro, robot state publisher, sensor_msgs_py, cv_bridge, image_transport, rosbag2 and colcon/rosdep. Python packages: numpy, scipy, PyYAML, aiohttp, websockets, pytest, pyserial; Node.js and GCC are used by validation.
 
-GLIM source prerequisites: GTSAM 4.3 (upstream 4.3a0), gtsam_points 1.2.2 or a compatible version, Eigen, Boost, OpenMP, fmt, spdlog and OpenCV. See [official GLIM installation](https://koide3.github.io/glim/installation.html). Choose CPU dependencies/builds. CUDA and Iridescence are not required for this profile; the browser remains graphical with `BUILD_WITH_VIEWER=OFF`. This flag disables GLIM's separate desktop editor, not Gazebo or the dashboard. Record dependency versions before comparison runs.
+GLIM source prerequisites: GTSAM 4.3a0 (`3ad4b4c3cb28394c9597f48fa02dad361c8450e3`), gtsam_points v1.2.2 (`9d32e7dbecf6015560d84b4901d6b0a6f483ec46`), Eigen, Boost, OpenMP, fmt, spdlog and OpenCV. See [official GLIM installation](https://koide3.github.io/glim/installation.html). Choose CPU dependencies/builds. CUDA and Iridescence are not required for this profile; the browser remains graphical with `BUILD_WITH_VIEWER=OFF`. This flag disables GLIM's separate desktop editor, not Gazebo or the dashboard. Record dependency versions before comparison runs.
 
 ## Clone and build
 
 ```bash
-git clone --recurse-submodules https://github.com/Im-praj/niihan_ws.git
+git clone --recurse-submodules --branch feat/l2-3d-slam-release https://github.com/Im-praj/niihan_ws.git
 cd niihan_ws
 source /opt/ros/humble/setup.bash
-rosdep install --from-paths src/niihan_description src/niihan_dashboard src/niihan_bringup src/niihan_slam src/glim src/glim_ros2 --ignore-src -r -y
+rosdep install --from-paths src/niihan_description src/niihan_dashboard src/niihan_bringup src/niihan_slam src/glim src/glim_ros2 src/navigation2 --ignore-src -r -y
 ./scripts/build_simulation.sh
 source install/setup.bash
 ./scripts/validate.sh
 ```
 
-Submodule commits are pinned by Git and `.gitmodules` supplies public URLs. Nav2 and KISS-ICP source checkouts are optional: the supported build uses installed Humble Nav2. Existing local upstream modifications are preserved as `patches/*.patch`; they are not needed by the CPU build with GLIM's editor disabled. Do not build all optional packages indiscriminately.
+Submodule commits are pinned by Git and `.gitmodules` supplies public URLs. The supported build compiles the pinned Nav2 checkout with `patches/nav2-humble.patch`, including rejected-transform handling. Installed Nav2 supplies prerequisites; runtime uses the built overlay. KISS-ICP remains optional. GLIM editor patches are preserved but not needed with its editor disabled. Do not build all optional packages indiscriminately.
 
 ## Visible simulation
 
@@ -32,7 +43,7 @@ ros2 launch niihan_slam slam_simulation.launch.py \
   headless:=false seed:=42 output_directory:=$HOME/evidence/current-map
 ```
 
-Open [dashboard](http://127.0.0.1:8080). HTTP and WebSocket bind to localhost. Three.js and OrbitControls are vendored, including their license. Both 3D cloud view and 2D navigation map are available; the front camera remains enabled in the minimal sensor profile. If WebGL is unavailable, the dashboard exposes the 2D fallback.
+Open [dashboard](http://127.0.0.1:8080). HTTP and WebSocket bind to localhost. Three.js and OrbitControls are vendored, including their license. RViz opens with robot/TF, 3D map, projected scan, occupancy and Nav2 path displays (`rviz:=false` can close that extra viewer). Both dashboard 3D cloud view and 2D navigation map are available; the front camera remains enabled in the minimal sensor profile. If WebGL is unavailable, the dashboard exposes the 2D fallback.
 
 `seed:=42` fixes Gazebo's random seed for comparable tests; 42 has no special SLAM meaning. CPU scheduling, sensor delivery and numerical optimization still vary. Repeatability means passing measured tolerances over repeated runs, not byte-identical maps.
 
