@@ -1,5 +1,5 @@
 """Publish base odometry and a conservative flat-site map from estimated 3D poses."""
-import json,math,time
+import json,math,time,copy
 from pathlib import Path
 import numpy as np
 import rclpy
@@ -7,9 +7,10 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile,DurabilityPolicy,qos_profile_sensor_data
 from nav_msgs.msg import OccupancyGrid,Odometry
 from sensor_msgs.msg import PointCloud2,Imu
+from geometry_msgs.msg import TransformStamped
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
-from tf2_ros import Buffer,TransformListener,TransformException
+from tf2_ros import Buffer,TransformListener,TransformException,TransformBroadcaster
 from niihan_description.point_cloud_utils import xyz_array
 from .grid import Grid,rotation
 
@@ -21,7 +22,7 @@ class MapBridge(Node):
         self.mapping=param('mapping',True);self.ground=param('ground_z',-.145)
         self.ground_initialized=False
         self.grid=Grid(param('resolution',.1));self.points={};self.last=None;self.received=0.;self.gyro=0.
-        self.tf=Buffer(node=self);self.listener=TransformListener(self.tf,self)
+        self.tf=Buffer(node=self);self.listener=TransformListener(self.tf,self);self.nav_tf=TransformBroadcaster(self)
         latched=QoSProfile(depth=1,durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.map_pub=self.create_publisher(OccupancyGrid,'/map',latched)
         self.cloud_pub=self.create_publisher(PointCloud2,'/niihan/slam/map_cloud',qos_profile_sensor_data)
@@ -42,10 +43,15 @@ class MapBridge(Node):
             # Simulator IMU and base axes align; this bridge refuses other rotations.
             rq=tf.transform.rotation
             if abs(rq.w)<.9999:return
-            out=Odometry();out.header=msg.header;out.child_frame_id='base_footprint';out.pose.pose=msg.pose.pose
+            out=Odometry();out.header=msg.header;out.child_frame_id='base_nav';out.pose.pose=copy.deepcopy(msg.pose.pose)
             out.pose.pose.position.x,out.pose.pose.position.y,out.pose.pose.position.z=base.tolist()
             v=msg.twist.twist.linear;body=rot.T@np.array([v.x,v.y,v.z]);out.twist.twist.linear.x,out.twist.twist.linear.y,out.twist.twist.linear.z=body.tolist();out.twist.twist.angular.z=self.gyro
             out.pose.covariance=msg.pose.covariance;out.twist.covariance=msg.twist.covariance
+            yaw=math.atan2(2*(q.w*q.z+q.x*q.y),1-2*(q.y*q.y+q.z*q.z))
+            out.pose.pose.position.z=0.;out.pose.pose.orientation.x=out.pose.pose.orientation.y=0.
+            out.pose.pose.orientation.z=math.sin(yaw/2);out.pose.pose.orientation.w=math.cos(yaw/2)
+            tfnav=TransformStamped();tfnav.header=copy.deepcopy(msg.header);tfnav.header.stamp=rclpy.time.Time.from_msg(msg.header.stamp).__add__(rclpy.duration.Duration(seconds=.1)).to_msg();tfnav.child_frame_id='base_nav'
+            tfnav.transform.translation.x,tfnav.transform.translation.y=base[:2].tolist();tfnav.transform.rotation=out.pose.pose.orientation;self.nav_tf.sendTransform(tfnav)
             self.odom_pub.publish(out);self.last=out;self.received=time.monotonic()
         except (TransformException,ValueError):return
     def cloud(self,msg):

@@ -46,6 +46,7 @@ class SensorAdapter(Node):
         self.low = parameter(self, 'min_height', 0.10)
         self.high = parameter(self, 'max_height', 1.8)
         self.level_height = parameter(self, 'gravity_aligned_height', False)
+        self.scan_frame = parameter(self, 'scan_frame', 'base_footprint')
         self.tf = Buffer(node=self)
         self.listener = TransformListener(self.tf, self)
         self.cloud_pub = self.create_publisher(PointCloud2, '/niihan/sensors/lidar/points', qos_profile_sensor_data)
@@ -70,15 +71,14 @@ class SensorAdapter(Node):
             transformed = p @ rotation.T + np.array([t.x,t.y,t.z])
             if self.level_height:
                 level=self.tf.lookup_transform("odom", "base_footprint", rclpy.time.Time()).transform.rotation
-                # Rotate into gravity-aligned odometry axes for ground rejection.
-                zrow=np.array([2*(level.x*level.z-level.w*level.y),2*(level.y*level.z+level.w*level.x),1-2*(level.x*level.x+level.y*level.y)])
-                transformed[:,2]=transformed @ zrow
+                from .contracts import level_points
+                transformed=level_points(transformed, [level.x,level.y,level.z,level.w])
         except (TransformException, ValueError):
             return
         self.cloud_pub.publish(msg)
         scan = LaserScan()
         scan.header.stamp = msg.header.stamp
-        scan.header.frame_id = 'base_footprint'
+        scan.header.frame_id = self.scan_frame
         scan.angle_min = -math.pi
         scan.angle_increment = 2*math.pi/360
         scan.angle_max = scan.angle_min+359*scan.angle_increment

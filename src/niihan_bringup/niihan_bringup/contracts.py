@@ -118,3 +118,14 @@ class UbxParser:
         if len(self.buffer) > 8192:
             self.buffer.clear()
         return packets
+
+
+def level_points(points, quaternion):
+    """Rotate body points into a yaw-only frame, retaining height above body origin."""
+    x,y,z,w=np.asarray(quaternion,dtype=float)/np.linalg.norm(quaternion)
+    rotation=np.array([[1-2*(y*y+z*z),2*(x*y-z*w),2*(x*z+y*w)],
+                       [2*(x*y+z*w),1-2*(x*x+z*z),2*(y*z-x*w)],
+                       [2*(x*z-y*w),2*(y*z+x*w),1-2*(x*x+y*y)]])
+    yaw=math.atan2(2*(w*z+x*y),1-2*(y*y+z*z));c,s=math.cos(yaw),math.sin(yaw)
+    yaw_rotation=np.array([[c,-s,0],[s,c,0],[0,0,1]])
+    return np.asarray(points) @ rotation.T @ yaw_rotation

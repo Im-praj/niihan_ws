@@ -51,3 +51,20 @@ def test_ubx_fragmented_corrupt_and_oversized():
     bad=bytearray(frame);bad[-1]^=1
     assert parser.feed(bytes(bad)+frame)==[(1,7,payload)]
     assert parser.feed(b'\xb5\x62\x01\x07\xff\xff'+frame)==[(1,7,payload)]
+
+
+def test_tilted_ground_rejection_preserves_yaw_coordinates():
+    from niihan_bringup.contracts import level_points
+    pitch=.19; yaw=.7
+    cp,sp=math.cos(pitch),math.sin(pitch)
+    cy,sy=math.cos(yaw),math.sin(yaw)
+    ry=np.array([[cp,0,sp],[0,1,0],[-sp,0,cp]])
+    # Coordinates in the yaw-only frame: far ground and a real obstacle.
+    level=np.array([[10,0,-.05],[2,0,.5]])
+    body=level @ ry
+    q=[-math.sin(yaw/2)*math.sin(pitch/2),math.cos(yaw/2)*math.sin(pitch/2),math.sin(yaw/2)*math.cos(pitch/2),math.cos(yaw/2)*math.cos(pitch/2)]
+    recovered=level_points(body,q)
+    assert np.allclose(recovered,level,atol=1e-8)
+    scan=project_scan(recovered)
+    assert scan[180]==pytest.approx(2)
+    assert sum(math.isfinite(v) for v in scan)==1

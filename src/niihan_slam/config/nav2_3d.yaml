@@ -18,7 +18,7 @@ behavior_server:
     global_frame: odom
     max_rotational_vel: 1.0
     min_rotational_vel: 0.4
-    robot_base_frame: base_footprint
+    robot_base_frame: base_nav
     rotational_acc_lim: 3.2
     simulate_ahead_time: 2.0
     spin:
@@ -84,7 +84,7 @@ bt_navigator:
     - nav2_assisted_teleop_cancel_bt_node
     - nav2_drive_on_heading_cancel_bt_node
     - nav2_is_battery_charging_condition_bt_node
-    robot_base_frame: base_footprint
+    robot_base_frame: base_nav
     use_sim_time: true
     wait_for_service_timeout: 1000
 bt_navigator_navigate_through_poses_rclcpp_node:
@@ -194,7 +194,7 @@ global_costmap:
       - inflation_layer
       publish_frequency: 1.0
       resolution: 0.05
-      robot_base_frame: base_footprint
+      robot_base_frame: base_nav
       transform_tolerance: 0.8
       static_layer:
         map_subscribe_transient_local: true
@@ -256,7 +256,7 @@ local_costmap:
       - inflation_layer
       publish_frequency: 2.0
       resolution: 0.05
-      robot_base_frame: base_footprint
+      robot_base_frame: base_nav
       transform_tolerance: 0.8
       rolling_window: true
       static_layer:

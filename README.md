@@ -40,7 +40,7 @@ The default portable world uses distributable primitive geometry. The older cons
 
 ## Data flow
 
-L2-model 3D cloud + IMU → GLIM 3D odometry/local/global mapping → estimated `map → odom → base_footprint` → occupancy projection + gravity-filtered scan → Nav2 → command arbiter → health/e-stop/watchdog gateway → Gazebo drive. Wheel odometry is used for drive health only. `/niihan/ground_truth` is an isolated evaluation topic and is never an estimator input or navigation TF publisher.
+L2-model 3D cloud + IMU → GLIM 3D odometry/local/global mapping → estimated full 3D `map → odom → base_footprint`, plus planar `odom → base_nav` for Nav2 → occupancy projection + gravity-filtered scan → Nav2 → command arbiter → health/e-stop/watchdog gateway → Gazebo drive. Wheel odometry is used for drive health only. `/niihan/ground_truth` is an isolated evaluation topic and is never an estimator input or navigation TF publisher.
 
 Vortex is a cloud serialization helper here; it is not the SLAM estimator. Nav2 plans on a 2D grid derived from 3D geometry. This flat-site profile is not a slope, overhang or drop-off traversability system. The separate hardware stack is documented in [commissioning](src/niihan_bringup/COMMISSIONING.md).
 
