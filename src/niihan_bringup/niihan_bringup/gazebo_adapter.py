@@ -16,7 +16,7 @@ class GazeboDrive(Node):
         self.cloud=self.create_publisher(PointCloud2,'/niihan/raw/lidar/points',qos_profile_sensor_data)
         self.create_subscription(PointCloud2,'/niihan/sensors/unitree_lidar/points',self.lidar,qos_profile_sensor_data)
         self.camera=self.create_publisher(Image,'/niihan/raw/camera/image_raw',qos_profile_sensor_data)
-        self.create_subscription(Image,'/niihan/sensors/orbbec/color/image_raw',self.camera.publish,qos_profile_sensor_data)
+        self.create_subscription(Image,'/niihan/sensors/panoramic/front/image_raw',self.camera.publish,qos_profile_sensor_data)
         self.health=self.create_publisher(Bool,'/niihan/drive/healthy',10)
         self.create_subscription(Odometry,'/niihan/wheel/odom',self.odom,10)
         self.quality=self.create_publisher(String,'/niihan/gnss/quality',10)
