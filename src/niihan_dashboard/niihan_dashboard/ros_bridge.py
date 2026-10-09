@@ -293,7 +293,8 @@ class ROSBridgeNode(Node):
     def _stop_navigation(self, message, failed=False):
         operation = self._active_navigation
         if operation is not None:
-            operation['cancelling'] = True
+            was_paused = operation.get('paused', False)
+            operation.update(cancelling=True, pausing=False, paused=False)
             operation['failure'] = failed
             if operation['kind'] == 'mission':
                 self.mission_manager.cancel_mission()
@@ -309,6 +310,8 @@ class ROSBridgeNode(Node):
                 except Exception as exc:
                     self.get_logger().error(f'Could not send action cancellation: {exc}')
             self.navigation.update(state='FAILED' if failed else 'CANCELLED', message=message)
+            if was_paused:
+                self._finish_navigation(operation, 'FAILED' if failed else 'CANCELLED', message)
         self.cmd_vel_pub.publish(Twist())
 
     def _trigger_estop(self, message):
@@ -348,7 +351,7 @@ class ROSBridgeNode(Node):
             return self._response(action, False, str(exc))
 
     def _process_command(self, action, data):
-        if action in ('joystick', 'nav_goal', 'start_mission') and self.get_parameter('require_health').value:
+        if action in ('joystick', 'nav_goal', 'start_mission', 'resume_mission') and self.get_parameter('require_health').value:
             if time.monotonic() - self._health_received > 2.0 or not self.telemetry.get('hardware_health', {}).get('ready', False):
                 return self._response(action, False, 'Motion inhibited: required sensor/drive health is unavailable.')
         if action == 'estop':
@@ -412,6 +415,10 @@ class ROSBridgeNode(Node):
                 return self._response(action, *self.mission_manager.write_mission())
         elif action == 'start_mission':
             return self._response(action, *self.send_waypoints())
+        elif action == 'pause_mission':
+            return self._response(action, *self.pause_mission())
+        elif action == 'resume_mission':
+            return self._response(action, *self.resume_mission())
         elif action == 'cancel_mission':
             self._stop_navigation('Navigation cancelled by operator.')
             if self._active_navigation is None:
@@ -432,10 +439,10 @@ class ROSBridgeNode(Node):
             return self._response(action, False, 'Unknown command.')
         return self._response(action, True, action.replace('_', ' ').capitalize() + ' applied.')
 
-    def _can_start_navigation(self, targets):
+    def _can_start_navigation(self, targets, resuming=False):
         if not self.safety_manager.validate_auto_command():
             return False, 'Navigation requires AUTO mode and a cleared e-stop.'
-        if self._active_navigation is not None:
+        if self._active_navigation is not None and not resuming:
             return False, 'Navigation is already active or cancellation is pending.'
         if not self.check_nav2():
             return False, 'Nav2 NavigateToPose action unavailable.'
@@ -465,6 +472,33 @@ class ROSBridgeNode(Node):
             return False, 'Write a nonempty mission before starting it.'
         operation = {'kind': 'mission', 'targets': targets, 'index': 0, 'cancelling': False}
         self._active_navigation = operation
+        return self._dispatch_target(operation)
+
+    @synchronized
+    def pause_mission(self):
+        operation = self._active_navigation
+        if operation is None or operation['kind'] != 'mission' or operation.get('cancelling') or operation.get('paused'):
+            return False, 'A running mission is required to pause.'
+        operation.update(pausing=True, cancelling=True, failure=False)
+        self.mission_manager.state = 'PAUSING'
+        self.navigation.update(state='PAUSING', message='Waiting for Nav2 to stop.')
+        handle = operation.get('handle')
+        if handle is not None and not operation.get('cancel_sent'):
+            operation['cancel_sent'] = True
+            handle.cancel_goal_async()
+        self.cmd_vel_pub.publish(Twist())
+        return True, 'Mission pause requested.'
+
+    @synchronized
+    def resume_mission(self):
+        operation = self._active_navigation
+        if operation is None or not operation.get('paused'):
+            return False, 'Wait for a paused mission before resuming.'
+        valid, message = self._can_start_navigation(operation['targets'][operation['index']:], resuming=True)
+        if not valid:return False, message
+        operation.update(paused=False, pausing=False, cancelling=False)
+        self.mission_manager.state = 'RUNNING'
+        self.mission_manager.message = f"Resuming waypoint {operation['index'] + 1}."
         return self._dispatch_target(operation)
 
     def _dispatch_target(self, operation):
@@ -531,6 +565,12 @@ class ROSBridgeNode(Node):
         except Exception as exc:
             self._trigger_estop(f'Navigation result unavailable: {exc}')
             self._finish_navigation(operation, 'FAILED', f'Navigation result unavailable: {exc}')
+            return
+        if operation.get('pausing'):
+            operation.update(paused=True, pausing=False, cancelling=False, handle=None, cancel_sent=False)
+            self.mission_manager.state = 'PAUSED'
+            self.mission_manager.message = 'Mission paused; resume continues the current waypoint.'
+            self.navigation.update(state='PAUSED', message=self.mission_manager.message)
             return
         if operation['cancelling']:
             state = 'FAILED' if operation.get('failure') else 'CANCELLED'

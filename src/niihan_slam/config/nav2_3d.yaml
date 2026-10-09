@@ -111,8 +111,9 @@ controller_server:
       min_lookahead_dist: 0.3
       plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
       regulated_linear_scaling_min_radius: 0.9
-      regulated_linear_scaling_min_speed: 0.25
+      regulated_linear_scaling_min_speed: 0.05
       rotate_to_heading_angular_vel: 0.4
+      rotate_to_heading_min_angle: 0.25
       transform_tolerance: 0.8
       use_collision_detection: true
       use_cost_regulated_linear_velocity_scaling: false

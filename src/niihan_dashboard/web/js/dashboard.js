@@ -110,6 +110,8 @@ function connectWebSocket() {
         elConn.textContent = "DISCONNECTED";
         elConn.className = "status-badge error";
         document.getElementById('btn-start-mission').disabled = true;
+        document.getElementById('btn-pause-mission').disabled = true;
+        document.getElementById('btn-resume-mission').disabled = true;
         nav2Ready = false;
         elLoc.textContent = 'LOC: DISCONNECTED';elLoc.className = 'status-badge error';
         document.getElementById('slam-status').textContent = 'SLAM: DISCONNECTED';
@@ -194,6 +196,8 @@ function updateTelemetry(data) {
         btnEstop.style.display = "none";
         btnClearEstop.style.display = "block";
         document.getElementById('btn-start-mission').disabled = true;
+        document.getElementById('btn-pause-mission').disabled = true;
+        document.getElementById('btn-resume-mission').disabled = true;
     } else {
         btnEstop.style.display = "block";
         btnClearEstop.style.display = "none";
@@ -210,7 +214,7 @@ function updateTelemetry(data) {
     // Mission
     const m = data.mission;
     missionState.textContent = m.state;
-    missionIsRunning = ['RUNNING', 'CANCELLING'].includes(m.state);
+    missionIsRunning = ['RUNNING', 'CANCELLING', 'PAUSING', 'PAUSED'].includes(m.state);
     waypoints = m.waypoints;
     const signature = JSON.stringify(waypoints);
     if (signature !== waypointSignature) {
@@ -227,6 +231,8 @@ function updateTelemetry(data) {
     document.getElementById('btn-start-mission').disabled =
         !isConnected || m.state !== 'READY' || mode !== 'AUTO' || estopActive || !nav2Ready || !poseValid;
     
+    document.getElementById('btn-pause-mission').disabled = !isConnected || m.state !== 'RUNNING';
+    document.getElementById('btn-resume-mission').disabled = !isConnected || m.state !== 'PAUSED' || mode !== 'AUTO' || estopActive || !nav2Ready || !poseValid;
     // Geofence
     const gf = data.geofence;
     geofencePolygon = gf.enabled ? gf.polygon : [];
@@ -307,6 +313,8 @@ document.getElementById('btn-start-mission').addEventListener('click', () => {
     sendCommand({action: "start_mission"});
 });
 
+document.getElementById('btn-pause-mission').addEventListener('click', () => sendCommand({action:'pause_mission'}));
+document.getElementById('btn-resume-mission').addEventListener('click', () => sendCommand({action:'resume_mission'}));
 document.getElementById('btn-cancel-mission').addEventListener('click', () => {
     sendCommand({action: "cancel_mission"});
     document.getElementById('btn-start-mission').disabled = true;
@@ -316,6 +324,8 @@ document.getElementById('btn-clear-mission').addEventListener('click', () => {
     if(confirm("Clear entire mission?")) {
         sendCommand({action: "clear_mission"});
         document.getElementById('btn-start-mission').disabled = true;
+        document.getElementById('btn-pause-mission').disabled = true;
+        document.getElementById('btn-resume-mission').disabled = true;
     }
 });
 

@@ -184,3 +184,21 @@ def test_wrong_z_cannot_complete_even_when_xy_matches():
     node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)), operation, 1)
     assert node.mission_manager.state == 'FAILED'
     assert not node.dispatched
+
+
+def test_pause_does_not_complete_or_advance_when_late_success_arrives():
+    node, operation = bridge()
+    operation.update(pausing=True, cancelling=True)
+    node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)), operation, 1)
+    assert node.mission_manager.state == 'PAUSED'
+    assert node._active_navigation is operation
+    assert operation['paused'] and not node.dispatched
+
+
+def test_cancel_paused_mission_clears_operation_without_waiting_for_result():
+    node, operation = bridge()
+    operation.update(paused=True, handle=None)
+    node.cmd_vel_pub = NS(publish=lambda message: None)
+    node._stop_navigation('Cancelled')
+    assert node.mission_manager.state == 'CANCELLED'
+    assert node._active_navigation is None
