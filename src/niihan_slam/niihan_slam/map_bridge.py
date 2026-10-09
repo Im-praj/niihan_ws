@@ -22,7 +22,7 @@ class MapBridge(Node):
         self.mapping=param('mapping',True);self.ground=param('ground_z',-.145)
         self.ground_initialized=False
         self.grid=Grid(param('resolution',.1));self.points={};self.last=None;self.received=0.;self.gyro=0.
-        self.tf=Buffer(node=self);self.listener=TransformListener(self.tf,self);self.nav_tf=TransformBroadcaster(self)
+        self.tf=Buffer(node=self);self.listener=TransformListener(self.tf,self)
         latched=QoSProfile(depth=1,durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.map_pub=self.create_publisher(OccupancyGrid,'/map',latched)
         self.cloud_pub=self.create_publisher(PointCloud2,'/niihan/slam/map_cloud',qos_profile_sensor_data)
@@ -31,7 +31,7 @@ class MapBridge(Node):
         self.create_subscription(Odometry,'/glim_ros/odom',self.odom,10)
         self.create_subscription(Imu,'/niihan/imu/data',lambda m:setattr(self,'gyro',m.angular_velocity.z),qos_profile_sensor_data)
         if self.mapping:
-            self.create_subscription(PointCloud2,'/glim_ros/aligned_points',self.cloud,10)
+            self.create_subscription(PointCloud2,'/glim_ros/points',self.cloud,10)
             self.create_subscription(PointCloud2,'/glim_ros/map',self.optimized_map,latched)
         self.create_service(Trigger,'/niihan/slam/save_map',self.save)
         self.create_timer(1.,self.publish)
@@ -50,14 +50,14 @@ class MapBridge(Node):
             yaw=math.atan2(2*(q.w*q.z+q.x*q.y),1-2*(q.y*q.y+q.z*q.z))
             out.pose.pose.position.z=0.;out.pose.pose.orientation.x=out.pose.pose.orientation.y=0.
             out.pose.pose.orientation.z=math.sin(yaw/2);out.pose.pose.orientation.w=math.cos(yaw/2)
-            tfnav=TransformStamped();tfnav.header=copy.deepcopy(msg.header);tfnav.header.stamp=rclpy.time.Time.from_msg(msg.header.stamp).__add__(rclpy.duration.Duration(seconds=.1)).to_msg();tfnav.child_frame_id='base_nav'
-            tfnav.transform.translation.x,tfnav.transform.translation.y=base[:2].tolist();tfnav.transform.rotation=out.pose.pose.orientation;self.nav_tf.sendTransform(tfnav)
             self.odom_pub.publish(out);self.last=out;self.received=time.monotonic()
         except (TransformException,ValueError):return
     def cloud(self,msg):
         try:
             p=xyz_array(msg);p=p[np.isfinite(p).all(axis=1)]
-            tf=self.tf.lookup_transform(msg.header.frame_id,'unitree_l2_link',rclpy.time.Time.from_msg(msg.header.stamp))
+            alignment=self.tf.lookup_transform('map',msg.header.frame_id,rclpy.time.Time.from_msg(msg.header.stamp)).transform
+            aq=alignment.rotation;at=alignment.translation;p=p@rotation([aq.x,aq.y,aq.z,aq.w]).T+np.array([at.x,at.y,at.z])
+            tf=self.tf.lookup_transform('map','unitree_l2_link',rclpy.time.Time.from_msg(msg.header.stamp))
             t=tf.transform.translation
             if not self.ground_initialized:
                 base=self.tf.lookup_transform('map','base_footprint',rclpy.time.Time.from_msg(msg.header.stamp)).transform.translation

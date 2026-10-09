@@ -18,7 +18,8 @@ def stack(context):
     def node(package,executable,name,params=None,**kw):return Node(package=package,executable=executable,name=name,output='screen',parameters=[clock]+(params or []),**kw)
     def include(path,args):return IncludeLaunchDescription(PythonLaunchDescriptionSource(path),launch_arguments=args.items())
     nodes=[include(os.path.join(desc,'launch','niihan_gazebo.launch.py'),{'world':LaunchConfiguration('world'),'headless':LaunchConfiguration('headless'),'seed':LaunchConfiguration('seed'),'external_stack':'true','minimal_sensors':'true','mapping':'false','launch_nav2':'false','vortex_3d':'false','cliff_detect':'false','rqt_cam':'false','patrol':'false'}),
-        node('glim_ros','glim_rosnode','glim_ros',[{'config_path':cfg,'dump_on_unload':False}]),
+        node('glim_ros','glim_rosnode','glim_ros',[{'config_path':cfg,'dump_on_unload':False}],remappings=[('/tf','/niihan/lio/tf')]),
+        node('niihan_slam','tf_filter','lio_tf_filter',[{'mapping':mode=='mapping'}]),
         node('niihan_slam','map_bridge','slam_map_bridge',[{'mapping':mode=='mapping','output_directory':output}]),
         node('niihan_description','command_arbiter','command_arbiter'),
         node('niihan_bringup','gazebo_drive','gazebo_drive'),
@@ -29,7 +30,8 @@ def stack(context):
         node('niihan_dashboard','dashboard_node','niihan_dashboard_node',[{'require_health':True,'slam_cloud_topic':'/niihan/slam/map_cloud'}])]
     # Raw simulator scan and mast cloud remain available for obstacle health; no
     # sensor_adapter duplicate scan/camera publishers are introduced.
-    if mode=='localization':nodes.append(node('niihan_slam','saved_localizer','saved_map_localizer',[{'map_file':LaunchConfiguration('map_file'),'initial_x':float(LaunchConfiguration('initial_x').perform(context)),'initial_y':float(LaunchConfiguration('initial_y').perform(context)),'initial_yaw':float(LaunchConfiguration('initial_yaw').perform(context))}]))
+    if mode=='localization':
+        nodes.append(node('niihan_slam','saved_localizer','saved_map_localizer',[{'map_file':LaunchConfiguration('map_file'),'initial_x':float(LaunchConfiguration('initial_x').perform(context)),'initial_y':float(LaunchConfiguration('initial_y').perform(context)),'initial_yaw':float(LaunchConfiguration('initial_yaw').perform(context))}]))
     return nodes
 
 def generate_launch_description():
