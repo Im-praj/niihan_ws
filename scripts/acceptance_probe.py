@@ -21,6 +21,7 @@ async def run():
         except TransformException:pass
     n.create_subscription(Odometry,'/niihan/ground_truth',truth,qos_profile_sensor_data)
     n.create_subscription(Twist,'/niihan/drive/cmd_vel',lambda m:log({'kind':'drive','v':m.linear.x,'w':m.angular.z}),10)
+    n.create_subscription(String,'/niihan/localizer/status',lambda m:log({'kind':'localizer','data':json.loads(m.data)}),10)
     n.create_subscription(String,'/niihan/slam/status',lambda m:log({'kind':'slam','data':json.loads(m.data)}),10)
     async def spin():
         while rclpy.ok():rclpy.spin_once(n,timeout_sec=0.);await asyncio.sleep(.01)
@@ -90,6 +91,8 @@ async def run():
                 result['rpe_1s_translation_rmse_m']=float(np.sqrt(np.mean(re**2)));result['rpe_1s_heading_rmse_rad']=float(np.sqrt(np.mean(he**2)))
         stops=[r for r in rows if r.get('kind')=='drive' and estop_wall+.5<r['wall_time']<estop_wall+3.5]
         result['estop_drive_zero']=bool(stops) and all(abs(r['v'])<1e-9 and abs(r['w'])<1e-9 for r in stops)
+        localizer=[r['data'] for r in rows if r.get('kind')=='localizer']
+        if localizer:result['saved_map_registration']={'accepted':sum(r['accepted'] for r in localizer),'total':len(localizer),'max_accepted_rmse_m':max((r['rmse_m'] for r in localizer if r['accepted']),default=None)}
         result['acceptance_pass']=completed and result['pause_resume_pass'] and result['final_xyz_error_m']<=.25 and result.get('relative_position_max_m',math.inf)<=.20 and result['estop_drive_zero']
         (root/'result.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True)
         rt.cancel()
