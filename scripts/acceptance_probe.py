@@ -38,7 +38,7 @@ async def run():
         async def send(action,**kw):d={'action':action,**kw};log({'kind':'sent','data':d});await w.send(json.dumps(d));await asyncio.sleep(.4)
         deadline=time.monotonic()+60
         while time.monotonic()<deadline:
-            if tele.get('pose_valid') and tele.get('hardware_health',{}).get('ready'):break
+            if tele.get('pose_valid') and tele.get('nav2_ready') and tele.get('hardware_health',{}).get('ready'):break
             await asyncio.sleep(.2)
         log({'kind':'phase','name':'three_waypoint_route'})
         await send('clear_estop');await send('set_mode',mode='AUTO');await send('clear_mission')
