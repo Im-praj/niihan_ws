@@ -435,7 +435,7 @@ body {
     .main-layout { flex: none; height: auto; flex-direction: column; }
     .view-panel { flex: none; height: 420px; }
     .side-panel { flex: none; overflow: visible; }
-    .mission-planner { height: auto; min-height: 300px; }
+    .bottom-panel { height: auto; min-height: 300px; flex-shrink: 0; }
     .mission-content { flex-direction: column; overflow: visible; }
     .table-container { overflow: auto; }
     .mission-header { flex-wrap: wrap; gap: 8px; }
