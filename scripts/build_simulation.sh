@@ -8,12 +8,7 @@ cd "$root"
 export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-2}"
 export MAKEFLAGS="${MAKEFLAGS:--j2}"
 git submodule update --init src/glim src/glim_ros2 src/navigation2 src/geometry2
-if git -C src/navigation2 apply --check ../../patches/nav2-humble.patch 2>/dev/null; then
-  git -C src/navigation2 apply ../../patches/nav2-humble.patch
-elif ! git -C src/navigation2 apply --reverse --check ../../patches/nav2-humble.patch 2>/dev/null; then
-  echo "Nav2 checkout differs from the pinned compatibility patch; inspect it before building." >&2
-  exit 1
-fi
+"$root/scripts/apply_nav2_patch.sh"
 colcon build --base-paths src/geometry2 --symlink-install --parallel-workers 1 --packages-up-to tf2_ros --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 source install/local_setup.bash
 colcon build --base-paths src/navigation2 --symlink-install --parallel-workers 1 --packages-up-to nav2_bringup --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
