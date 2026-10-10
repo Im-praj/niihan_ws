@@ -14,7 +14,7 @@ for name in ['niihan_description','niihan_bringup','niihan_dashboard','niihan_sl
 for name in ['niihan_slam.map_bridge','niihan_slam.saved_localizer','niihan_dashboard.ros_bridge']:
     importlib.import_module(name)
 PY
-ros2 run glim_ros glim_rosnode --ros-args --help >/dev/null
+ros2 pkg executables glim_ros | rg -q '^glim_ros glim_rosnode$'
 xacro "$root/install/niihan_description/share/niihan_description/urdf/niihan.urdf.xacro" minimal_sensors:=true >/dev/null
 # ELF loader checks, not a substitute for motion/SLAM acceptance.
 while IFS= read -r -d '' library; do
