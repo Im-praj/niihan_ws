@@ -32,11 +32,11 @@ class SavedLocalizer(Node):
         self.map_pub=self.create_publisher(OccupancyGrid,'/map',QoSProfile(depth=1,durability=DurabilityPolicy.TRANSIENT_LOCAL))
         grid=saved['grid'];self.map=OccupancyGrid();self.map.header.frame_id='map';self.map.info.resolution=float(saved['resolution']);self.map.info.width=grid.shape[1];self.map.info.height=grid.shape[0];self.map.info.origin.position.x=self.map.info.origin.position.y=float(saved['origin']);self.map.info.origin.orientation.w=1.;self.map.data=grid.ravel().tolist();self.create_timer(1.,self.publish_map)
         self.cloud_pub=self.create_publisher(PointCloud2,'/niihan/slam/map_cloud',qos_profile_sensor_data)
-        self.last=0.
+        self.last=0.;self.last_stamp=None
     def publish_map(self):
         self.map.header.stamp=self.get_clock().now().to_msg();self.map_pub.publish(self.map)
         from niihan_description.vortex_3d_mapper import _make_pointcloud2
-        self.cloud_pub.publish(_make_pointcloud2(self.map_points[::max(1,len(self.map_points)//30000)],"map",self.map.header.stamp))
+        if self.last_stamp is not None:self.cloud_pub.publish(_make_pointcloud2(self.map_points[::max(1,len(self.map_points)//30000)],"map",self.last_stamp))
     def initial(self,msg):
         if msg.header.frame_id!='map':return
         try:
@@ -60,6 +60,7 @@ class SavedLocalizer(Node):
             pose,rmse,overlap=icp_planar(p,self.tree,self.pose,max_distance=.6)
             accepted=overlap>=.45 and rmse<=.20 and np.linalg.norm(pose[:2]-self.pose[:2])<.5 and abs(pose[2]-self.pose[2])<.25
             if accepted:
+                self.last_stamp=msg.header.stamp
                 self.pose=pose;tf=TransformStamped();tf.header.frame_id='map';tf.child_frame_id='odom';tf.header.stamp=msg.header.stamp;tf.transform.translation.x,tf.transform.translation.y=pose[:2].tolist();tf.transform.translation.z=self.z_offset;tf.transform.rotation.z=math.sin(pose[2]/2);tf.transform.rotation.w=math.cos(pose[2]/2);self.broadcaster.sendTransform(tf)
             self.status.publish(String(data=json.dumps({'accepted':bool(accepted),'rmse_m':rmse,'overlap':overlap,'initial_pose_required':True})));self.last=stamp
         except (TransformException,ValueError):return

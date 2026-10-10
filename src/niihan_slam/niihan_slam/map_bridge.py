@@ -21,7 +21,7 @@ class MapBridge(Node):
         self.directory=Path(param('output_directory','/tmp/niihan_map'))
         self.mapping=param('mapping',True);self.ground=param('ground_z',-.145)
         self.ground_initialized=False
-        self.grid=Grid(param('resolution',.1));self.points={};self.last=None;self.received=0.;self.gyro=0.
+        self.grid=Grid(param('resolution',.1));self.points={};self.last=None;self.received=0.;self.gyro=0.;self.cloud_stamp=None
         self.tf=Buffer(node=self);self.listener=TransformListener(self.tf,self)
         latched=QoSProfile(depth=1,durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.map_pub=self.create_publisher(OccupancyGrid,'/map',latched)
@@ -63,6 +63,7 @@ class MapBridge(Node):
                 base=self.tf.lookup_transform('map','base_footprint',rclpy.time.Time.from_msg(msg.header.stamp)).transform.translation
                 self.ground=base.z;self.ground_initialized=True
             self.grid.update(p,[t.x,t.y,t.z],self.ground)
+            self.cloud_stamp=copy.deepcopy(msg.header.stamp)
             for xyz in p:
                 key=tuple(np.floor(xyz/.15).astype(int));self.points[key]=xyz
         except (TransformException,ValueError):return
@@ -78,11 +79,11 @@ class MapBridge(Node):
         except ValueError:return
 
     def publish(self):
-        if self.mapping and self.points:
+        if self.mapping and self.points and self.cloud_stamp is not None:
             m=OccupancyGrid();m.header.frame_id='map';m.header.stamp=self.get_clock().now().to_msg();m.info.resolution=self.grid.resolution;m.info.width=m.info.height=self.grid.size;m.info.origin.position.x=m.info.origin.position.y=self.grid.origin;m.info.origin.orientation.w=1.;m.data=self.grid.data().ravel().tolist();self.map_pub.publish(m)
             from niihan_description.vortex_3d_mapper import _make_pointcloud2
             points=np.array(list(self.points.values()),dtype=np.float32)
-            self.cloud_pub.publish(_make_pointcloud2(points[::max(1,len(points)//30000)],'map',m.header.stamp))
+            self.cloud_pub.publish(_make_pointcloud2(points[::max(1,len(points)//30000)],'map',self.cloud_stamp))
         status={'backend':'GLIM CPU','mode':'mapping' if self.mapping else 'saved-map localization','odometry_fresh':time.monotonic()-self.received<2.,'map_points':len(self.points),'simulation':True,'projection':'flat-ground; no slope/drop-off certification'}
         self.status.publish(String(data=json.dumps(status)))
     def save(self,request,response):
