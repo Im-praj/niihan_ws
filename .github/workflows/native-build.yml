@@ -37,7 +37,7 @@ jobs:
       - name: Install, build and validate native profile
         env:
           NIIHAN_BUILD_JOBS: '2'
-        run: ./setup.sh --source
+        run: ./setup.sh --source --allow-system-removals
       - name: Materialize relocatable CPU runtime archive
         run: |
           sudo apt-get install -y patchelf

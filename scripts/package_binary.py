@@ -11,6 +11,9 @@ assert platform.machine()=='x86_64'
 stage=out/'stage'
 if stage.exists():raise SystemExit(f'Stage already exists: {stage}. Use a new output directory.')
 stage.mkdir();shutil.copytree(r/'install',stage/'install',symlinks=False)
+# Optional privately licensed geometry never belongs in a public runtime bundle.
+for folder in (stage/'install').glob('*/share/niihan_description/models/construction_site_chunk5'):
+ shutil.rmtree(folder)
 libs=stage/'deps/lib';libs.mkdir(parents=True)
 # Collect non-distribution shared library dependencies, including transitive ones.
 elfs=[f for f in (stage/'install').rglob('*') if f.is_file() and f.open('rb').read(4)==b'\x7fELF']
