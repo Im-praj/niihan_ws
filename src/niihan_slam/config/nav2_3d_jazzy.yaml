@@ -94,7 +94,7 @@ controller_server:
       plugin: nav2_controller::SimpleGoalChecker
       # Recheck XY after saved-map corrections; yaw is unrestricted.
       stateful: false
-      xy_goal_tolerance: 0.1
+      xy_goal_tolerance: 0.05
       yaw_goal_tolerance: 3.141593
     goal_checker_plugins:
     - general_goal_checker
@@ -250,7 +250,8 @@ planner_server:
     GridBased:
       allow_unknown: true
       plugin: nav2_smac_planner::SmacPlanner2D
-      tolerance: 0.1
+      # Reach the requested goal cell rather than a nearby substitute.
+      tolerance: 0.0
       cost_travel_multiplier: 2.0
       max_planning_time: 0.4
     expected_planner_frequency: 2.0

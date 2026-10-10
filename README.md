@@ -24,7 +24,7 @@ Native targets (amd64):
 
 Setup selects the native pairing automatically. This does not support Humble on 24.04 or Jazzy on 22.04 natively; use a matching OS container/VM for those combinations. A working graphical display and OpenGL rendering are required. Windows/macOS/native ROS distributions are not validated. A fresh source clone can be tested on this host; that does not certify every GPU or clean operating-system installation.
 
-Install ROS Humble and Gazebo Harmonic from their official instructions. Use the Harmonic-compatible `ros-humble-ros-gzharmonic` bridge, not a mismatched default Gazebo bridge. Install Nav2 (`ros-humble-navigation2`, `ros-humble-nav2-bringup`), Xacro, robot state publisher, sensor_msgs_py, cv_bridge, image_transport, rosbag2 and colcon/rosdep. Python packages: numpy, scipy, PyYAML, aiohttp, websockets, pytest, pyserial; Node.js and GCC are used by validation.
+The setup script installs the native ROS and Gazebo prerequisites. For a manual Humble development environment, install ROS Humble and Gazebo Harmonic from their official instructions. Use the Harmonic-compatible `ros-humble-ros-gzharmonic` bridge, not a mismatched default Gazebo bridge. Install Nav2 (`ros-humble-navigation2`, `ros-humble-nav2-bringup`), Xacro, robot state publisher, sensor_msgs_py, cv_bridge, image_transport, rosbag2 and colcon/rosdep. Python packages: numpy, scipy, PyYAML, aiohttp, websockets, pytest, pyserial; Node.js and GCC are used by validation.
 
 GLIM source prerequisites: GTSAM 4.3a0 (`3ad4b4c3cb28394c9597f48fa02dad361c8450e3`), gtsam_points v1.2.2 (`9d32e7dbecf6015560d84b4901d6b0a6f483ec46`), Eigen, Boost, OpenMP, fmt, spdlog and OpenCV. See [official GLIM installation](https://koide3.github.io/glim/installation.html). Choose CPU dependencies/builds. CUDA and Iridescence are not required for this profile; the browser remains graphical with `BUILD_WITH_VIEWER=OFF`. This flag disables GLIM's separate desktop editor, not Gazebo or the dashboard. Record dependency versions before comparison runs.
 
@@ -50,11 +50,8 @@ If already cloned, use `git pull --ff-only origin feat/l2-3d-slam-release` inste
 ```bash
 git clone --recurse-submodules --branch feat/l2-3d-slam-release https://github.com/Im-praj/niihan_ws.git
 cd niihan_ws
-source /opt/ros/humble/setup.bash
-rosdep install --from-paths src/niihan_description src/niihan_dashboard src/niihan_bringup src/niihan_slam src/glim src/glim_ros2 src/navigation2 src/geometry2 --ignore-src -r -y
-./scripts/build_simulation.sh
-source install/setup.bash
-./scripts/validate.sh
+./setup.sh --source
+./run.sh
 ```
 
 Submodule commits are pinned by Git and `.gitmodules` supplies public URLs. The Humble build first compiles pinned geometry2 0.25.24 (TF core and ROS bindings), then the pinned Nav2 checkout with `patches/nav2-humble.patch`, including rejected-transform handling. Installed Nav2 supplies prerequisites; runtime uses the built overlay. KISS-ICP remains optional. GLIM editor patches are preserved but not needed with its editor disabled. Do not build all optional packages indiscriminately.

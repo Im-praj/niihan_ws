@@ -38,3 +38,19 @@ def test_jazzy_nav2_keeps_drive_contract():
     tree=ET.parse(config/'navigate_to_pose_position_jazzy.xml').getroot()
     assert tree.get('BTCPP_format')=='4'
     assert tree.find('.//GoalReached') is not None
+
+@pytest.mark.parametrize('profile', ['nav2_3d.yaml', 'nav2_3d_jazzy.yaml'])
+def test_planner_controller_arrival_budget(profile):
+    # Smac ends at a cell center. Its cell quantization plus controller stop
+    # allowance must fit inside the BT's original-goal arrival condition.
+    import math
+    d=yaml.safe_load((ROOT/'src/niihan_slam/config'/profile).read_text())
+    controller=d['controller_server']['ros__parameters']
+    checker=controller[controller['goal_checker_plugins'][0]]
+    grid=d['global_costmap']['global_costmap']['ros__parameters']
+    bt=d['bt_navigator']['ros__parameters']
+    planner=d['planner_server']['ros__parameters']['GridBased']
+    assert planner['tolerance']==0.0
+    assert checker['stateful'] is False
+    assert checker['yaw_goal_tolerance']>=math.pi
+    assert math.sqrt(2)*grid['resolution']/2+checker['xy_goal_tolerance'] < bt['goal_reached_tol']

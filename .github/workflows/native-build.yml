@@ -38,6 +38,12 @@ jobs:
         env:
           NIIHAN_BUILD_JOBS: '2'
         run: ./setup.sh --source --allow-system-removals
+      - name: Preserve dependency compilation for retries
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .deps
+          key: cpu-deps-${{ matrix.os }}-${{ hashFiles('scripts/build_dependencies.sh') }}
       - name: Materialize relocatable CPU runtime archive
         run: |
           sudo apt-get install -y patchelf
