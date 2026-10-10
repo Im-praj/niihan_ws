@@ -109,7 +109,7 @@ def generate_launch_description():
 
     # Gazebo Sim launch via ros_gz_sim: world file must be first positional argument
     gz_args_sub = PythonExpression([
-        "'", world_path, " -r --seed ", LaunchConfiguration('seed'), "' if '", LaunchConfiguration('headless'), "' == 'false' else '", world_path, " -s -r --headless-rendering --seed ", LaunchConfiguration('seed'), "'"
+        "'", world_path, " -s -r --seed ", LaunchConfiguration('seed'), "' if '", LaunchConfiguration('headless'), "' == 'false' else '", world_path, " -s -r --headless-rendering --seed ", LaunchConfiguration('seed'), "'"
     ])
 
     log_world_path = LogInfo(
@@ -130,6 +130,15 @@ def generate_launch_description():
         launch_arguments={
             'gz_args': gz_args_sub,
         }.items(),
+    )
+
+    # Keep a visible GUI, but start it separately from the server. Combined
+    # Gazebo startup intermittently hung before advertising any world service.
+    gz_gui = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(PathJoinSubstitution([
+            FindPackageShare('ros_gz_sim'), 'launch', 'gz_sim.launch.py'])),
+        launch_arguments={'gz_args':'-g'}.items(),
+        condition=UnlessCondition(LaunchConfiguration('headless')),
     )
 
     robot_state_publisher_node = Node(
@@ -399,6 +408,7 @@ def generate_launch_description():
         log_world_path,
         log_gz_args,
         gz_sim,
+        TimerAction(period=1.0, actions=[gz_gui]),
         robot_state_publisher_node,
         spawn_entity,
         bridge_node,
