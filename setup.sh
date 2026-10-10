@@ -115,9 +115,17 @@ source "$root/scripts/environment.sh"
 if $system; then
   [[ -f /etc/ros/rosdep/sources.list.d/20-default.list ]] || sudo rosdep init
   rosdep update --rosdistro humble
-  rosdep install --from-paths "$root/src/niihan_description" "$root/src/niihan_dashboard" \
+  # Resolve only the supported dependency closure, excluding upstream system
+  # tests that require Gazebo Classic (incompatible with this Harmonic profile).
+  colcon --log-base "$root/.setup/logs/selection" list --base-paths \
+    "$root/src/niihan_description" "$root/src/niihan_dashboard" \
     "$root/src/niihan_bringup" "$root/src/niihan_slam" "$root/src/glim" \
     "$root/src/glim_ros2" "$root/src/navigation2" "$root/src/geometry2" \
+    --packages-up-to niihan_slam nav2_bringup tf2_ros --paths-only \
+    > "$root/.setup/dependency-paths.txt"
+  mapfile -t dependency_paths < "$root/.setup/dependency-paths.txt"
+  [[ ${#dependency_paths[@]} -gt 0 ]]
+  rosdep install --from-paths "${dependency_paths[@]}" \
     --ignore-src --rosdistro humble -y
 fi
 "$root/scripts/build_simulation.sh"

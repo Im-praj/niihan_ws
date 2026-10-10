@@ -3,7 +3,7 @@
   <name>niihan_bringup</name><version>0.1.0</version>
   <description>Common navigation/dashboard with mock, Gazebo and physical sensor/motor adapters</description>
   <maintainer email="dev@example.com">NIIHAN maintainers</maintainer><license>Apache-2.0</license>
-  <buildtool_depend>ament_python</buildtool_depend>
+  <buildtool_depend>python3-setuptools</buildtool_depend>
   <exec_depend>niihan_description</exec_depend><exec_depend>niihan_dashboard</exec_depend>
   <exec_depend>rclpy</exec_depend><exec_depend>launch</exec_depend><exec_depend>launch_ros</exec_depend>
   <exec_depend>robot_localization</exec_depend><exec_depend>geometry_msgs</exec_depend>

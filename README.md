@@ -144,3 +144,5 @@ git pull --ff-only origin feat/l2-3d-slam-release
 ```
 
 For an older checkout, use `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 ./scripts/validate.sh`. No package uninstall or system-wide Python upgrade is required.
+
+If rosdep reports `Cannot locate rosdep definition for [ament_python]`, update the release branch. The manifests use `python3-setuptools` as the build dependency and retain `ament_python` only as the exported build type. Setup resolves the supported package dependency closure, excluding upstream system tests requiring Gazebo Classic. Skipping distributions other than Humble during `rosdep update --rosdistro humble` is normal.
