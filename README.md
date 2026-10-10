@@ -116,3 +116,14 @@ The acceptance trajectory uses Gazebo world pose only for evaluation. XYZ displa
 ## Physical L2 commissioning boundary
 
 The verified GLIM profile is `niihan_slam/slam_simulation.launch.py`. The older `niihan_bringup/niihan_hardware.launch.py` starts the legacy EKF/slam_toolbox application; it is not the GLIM 3D hardware profile. Physical L2 operation is not certified by these simulation runs. Real point timestamps/deskew, LiDAR-to-IMU extrinsics, IMU source/bias/gravity, serial/network driver settings and motor calibration must be measured on the actual rover before a hardware GLIM profile is accepted. The supplied `global_shutter=true` and chassis-IMU configuration describe the simulation sensor, not a physical L2 calibration. Ground-height projection is a flat-site baseline and does not certify slopes or drop-offs.
+
+## Validation: incompatible user pytest plugins
+
+If validation reports `ModuleNotFoundError: No module named '_pytest.scope'` from `anyio/pytest_plugin.py`, a user-installed AnyIO plugin is incompatible with the system pytest. This happens before project tests run; it is not a GLIM compilation error. The validation script disables automatic loading of unrelated third-party pytest plugins; this suite needs only built-in plugins. Update the release branch and rerun:
+
+```bash
+git pull --ff-only origin feat/l2-3d-slam-release
+./scripts/validate.sh
+```
+
+For an older checkout, use `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 ./scripts/validate.sh`. No package uninstall or system-wide Python upgrade is required.

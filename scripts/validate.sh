@@ -7,7 +7,9 @@ set -u
 export PYTHONDONTWRITEBYTECODE=1
 export ROS_LOG_DIR="${ROS_LOG_DIR:-$workspace_root/.validation/ros-log}"
 export PYTHONPATH="$workspace_root/src/niihan_description:$workspace_root/src/niihan_dashboard:$workspace_root/src/niihan_bringup:$workspace_root/src/niihan_slam:${PYTHONPATH:-}"
-python3 -m pytest -q -p no:cacheprovider "$workspace_root/src/niihan_description/test" "$workspace_root/src/niihan_dashboard/test" "$workspace_root/src/niihan_bringup/test" "$workspace_root/src/niihan_slam/test"
+# Only built-in pytest plugins are needed; user-installed entry points may target
+# a different pytest version (for example anyio versus Ubuntu's system pytest).
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q -p no:cacheprovider "$workspace_root/src/niihan_description/test" "$workspace_root/src/niihan_dashboard/test" "$workspace_root/src/niihan_bringup/test" "$workspace_root/src/niihan_slam/test"
 node "$workspace_root/src/niihan_dashboard/test/test_web_viewer2d.js"
 xacro "$workspace_root/src/niihan_description/urdf/niihan.urdf.xacro" > /dev/null
 gz sdf -k "$workspace_root/src/niihan_description/worlds/niihan_construction_site.sdf"
