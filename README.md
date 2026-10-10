@@ -33,7 +33,7 @@ GLIM source prerequisites: GTSAM 4.3a0 (`3ad4b4c3cb28394c9597f48fa02dad361c8450e
 On Ubuntu 22.04 or 24.04 amd64 with a graphical desktop:
 
 ```bash
-git clone --recurse-submodules --branch feat/l2-3d-slam-release https://github.com/Im-praj/niihan_ws.git
+git clone --branch feat/l2-3d-slam-release https://github.com/Im-praj/niihan_ws.git
 cd niihan_ws
 ./setup.sh
 ./run.sh

@@ -128,7 +128,8 @@ controller_server:
     failure_tolerance: 0.3
     general_goal_checker:
       plugin: nav2_controller::SimpleGoalChecker
-      stateful: true
+      # Recheck XY after saved-map corrections; yaw is unrestricted.
+      stateful: false
       xy_goal_tolerance: 0.1
       yaw_goal_tolerance: 3.141593
     goal_checker_plugins:

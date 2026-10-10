@@ -35,13 +35,15 @@ niihan_select_platform
 if $check; then
   niihan_source_ros
   source "$root/scripts/environment.sh"
-  for tool in cmake git colcon node gcc xacro gz; do
+  check_tools=(git node xacro gz)
+  if $source_build; then check_tools+=(cmake colcon gcc); fi
+  for tool in "${check_tools[@]}"; do
     command -v "$tool" >/dev/null || { echo "Missing command: $tool";exit 1; }
   done
   python3 - <<'PY'
 import importlib
 from ament_index_python.packages import get_package_share_directory
-for name in ['numpy','scipy','yaml','websockets','pytest','serial','cv2']:
+for name in ['numpy','scipy','yaml','websockets','serial','cv2']:
     importlib.import_module(name)
 for name in ['ros_gz_sim','ros_gz_bridge','rviz2','cv_bridge','sensor_msgs_py']:
     get_package_share_directory(name)

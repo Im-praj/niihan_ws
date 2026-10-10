@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 concurrency:
   group: binary-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 permissions:
   contents: write
 jobs:
@@ -61,6 +61,10 @@ jobs:
           tag="binaries-$GITHUB_SHA"
           gh release view "$tag" >/dev/null 2>&1 || { gh release create "$tag" --target "$GITHUB_SHA" --prerelease --title "CPU binaries $GITHUB_SHA" --notes "Platform-specific runtime bundles. Build/import/link validation only; visible simulation acceptance is tracked separately." || gh release view "$tag"; }
           gh release upload "$tag" "$RUNNER_TEMP/binary/"*.tar.gz "$RUNNER_TEMP/binary/"*.sha256
+      - name: Verify public binary download through the user entry point
+        run: |
+          cd "$RUNNER_TEMP/binary-consumer"
+          ./setup.sh --no-system
       - name: Upload build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
