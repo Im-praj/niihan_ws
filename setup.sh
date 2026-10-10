@@ -66,21 +66,27 @@ exec > >(tee -a "$logfile") 2>&1
 trap 'code=$?; echo "Setup failed (exit $code). Log: $logfile"; exit "$code"' ERR
 echo "Setup log: $logfile"
 if $system; then
-  sudo apt-get update
+  # Retire only the repository file written by earlier NIIHAN setup revisions.
+  if [[ -f /etc/apt/sources.list.d/niihan-ros2.list ]]; then
+    sudo rm /etc/apt/sources.list.d/niihan-ros2.list
+  fi
+  sudo apt-get update -o APT::Update::Error-Mode=any
   sudo apt-get install -y --no-remove curl ca-certificates gnupg software-properties-common
   sudo add-apt-repository -y universe
   # Configure official repositories only if the relevant package has no candidate.
   if ! apt-cache show "ros-${NIIHAN_ROS_DISTRO}-ros-base" >/dev/null 2>&1; then
-    curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o "$root/.setup/ros.key"
-    sudo install -m 644 "$root/.setup/ros.key" /usr/share/keyrings/niihan-ros-archive-keyring.gpg
-    printf '%s\n' "deb [arch=amd64 signed-by=/usr/share/keyrings/niihan-ros-archive-keyring.gpg] https://packages.ros.org/ros2/ubuntu $NIIHAN_UBUNTU_CODENAME main" | sudo tee /etc/apt/sources.list.d/niihan-ros2.list >/dev/null
+    # Use ROS's official repository package, including its maintained signing keys.
+    ros_source_version="$(curl -fsSL https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
+    [[ "$ros_source_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+    curl -fL "https://github.com/ros-infrastructure/ros-apt-source/releases/download/$ros_source_version/ros2-apt-source_${ros_source_version}.${NIIHAN_UBUNTU_CODENAME}_all.deb" -o "$root/.setup/ros2-apt-source.deb"
+    sudo dpkg -i "$root/.setup/ros2-apt-source.deb"
   fi
   if [[ "$NIIHAN_ROS_DISTRO" == humble ]] && ! apt-cache show gz-harmonic >/dev/null 2>&1; then
     curl -fsSL https://packages.osrfoundation.org/gazebo.gpg -o "$root/.setup/gazebo.gpg"
     sudo install -m 644 "$root/.setup/gazebo.gpg" /usr/share/keyrings/niihan-gazebo-archive-keyring.gpg
     printf '%s\n' 'deb [arch=amd64 signed-by=/usr/share/keyrings/niihan-gazebo-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable jammy main' | sudo tee /etc/apt/sources.list.d/niihan-gazebo.list >/dev/null
   fi
-  sudo apt-get update
+  sudo apt-get update -o APT::Update::Error-Mode=any
   gazebo_packages=()
   [[ "$NIIHAN_ROS_DISTRO" != humble ]] || gazebo_packages=(gz-harmonic)
   sudo apt-get install -y --no-remove \
