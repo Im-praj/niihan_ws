@@ -1,6 +1,6 @@
 # NIIHAN rover: 3D SLAM and Nav2
 
-ROS 2 Humble / Gazebo Harmonic simulation with GLIM CPU LiDAR-inertial SLAM, a projected occupancy grid, Nav2 waypoint missions and a local browser dashboard. The portable simulation uses the Unitree L2 scan geometry and chassis IMU. It is a simulation model, not a validated physical L2 driver/calibration.
+ROS 2 Humble / Gazebo Harmonic simulation with GLIM CPU LiDAR-inertial SLAM, a projected occupancy grid, Nav2 waypoint missions and a local browser dashboard. The portable simulation uses a simplified L2-like GPU LiDAR (360 × 32 rays at 10 Hz) and chassis IMU. It is a simulation model, not a validated physical L2 driver/calibration.
 
 ## Source structure
 
@@ -84,3 +84,35 @@ Mission controls: PAUSE waits for Nav2 cancellation acknowledgement and preserve
 The 3D profile starts at world (-10,0), away from the construction world's raised access-lane edge at x=-12. The fixed map-frame acceptance loop stays on flat ground. The earlier curb attempt is retained as a failed terrain case: wheel rotation is not proof of vehicle motion. Step climbing and traversability require separate terrain detection/control validation. `spawn_x` and `spawn_y` can be overridden explicitly.
 
 The 3D navigation behavior tree checks position arrival on every tick before replanning, with a 0.15 m XY tolerance. This prevents repeated FollowPath successes from being superseded by asynchronous replans in saved-map mode. The dashboard still verifies fresh full XYZ distance <=0.25 m before advancing the mission. No yaw completion condition is used.
+
+
+## Cloud and vehicle pose contract
+
+Every rendered `/niihan/slam/map_cloud` packet carries `frame_id`, `stamp`, `pose_stamp` and the vehicle pose (`x`, `y`, `z`, `yaw`, `roll`, `pitch`). The dashboard resolves `map → base_footprint` at the cloud timestamp, not the latest TF. A cloud without a matching transform is withheld. The 3D label displays that cloud's timestamp and X/Y/θ; the telemetry panel separately shows the current live pose. Angles are radians in messages and degrees in the GUI. The actual URDF model follows full roll/pitch/yaw and live wheel/suspension joints.
+
+The cloud is an accumulated map snapshot, normally published at 1 Hz and reduced to the browser's point budget. This is not a promise to send every raw L2 scan to a browser. Raw 3D scans and IMU feed GLIM independently of browser updates. Saved-map snapshots use the last accepted registration timestamp. A single forward RGB camera is bridged directly in simulation; the common adapter does not relay it back into its input.
+
+With `headless:=false`, the launch starts the world server and a separate visible Gazebo GUI client. RViz and the browser remain graphical. Separating server/client startup addresses intermittent combined-process starts that supplied no world service or clock.
+
+## Recorded acceptance commands
+
+Run these from a freshly sourced workspace on a graphical desktop. Each run directory must be new; failed runs are preserved. The harness records 1920×1080 desktop video on this host, source/submodule state, sensor/TF/lifecycle ownership, actual drive commands, trajectory pairs, cloud/pose timestamp checks and map files. GStreamer `gst-launch-1.0`, `ximagesrc`, VP8/WebM plugins and a valid `DISPLAY` are required for recording. Desktop video includes whichever windows are visible; separate approved Gazebo/RViz close-ups are still a checklist item.
+
+```bash
+source /opt/ros/humble/setup.bash
+source install/local_setup.bash
+mkdir -p "$HOME/evidence"
+python3 scripts/record_acceptance.py "$PWD" "$HOME/evidence/mapping_01"
+python3 scripts/record_acceptance.py "$PWD" "$HOME/evidence/mapping_02"
+python3 scripts/record_acceptance.py "$PWD" "$HOME/evidence/mapping_03"
+python3 scripts/record_acceptance.py "$PWD" "$HOME/evidence/localization_01" \
+  mode:=localization map_file:="$HOME/evidence/mapping_01/map/map_3d.npz"
+python3 scripts/record_acceptance.py "$PWD" "$HOME/evidence/safety_01" --probe=fault
+python3 scripts/record_acceptance.py "$PWD" "$HOME/evidence/obstacle_01" --probe=obstacle
+```
+
+The acceptance trajectory uses Gazebo world pose only for evaluation. XYZ displacement and θ are compared at matching timestamps with initial coordinate offsets removed. No fitted trajectory rotation is used for position scoring. Limits are maximum relative XYZ error 0.20 m, maximum relative heading error 0.15 rad, and final XYZ goal error 0.25 m. Heading accuracy is checked; final waypoint heading is unrestricted. Runtime checks also require one camera publisher, one clock publisher, unique TF parents, no duplicate ROS nodes and active required Nav2 components. See [measured results and remaining limitations](docs/RELEASE_VALIDATION.md).
+
+## Physical L2 commissioning boundary
+
+The verified GLIM profile is `niihan_slam/slam_simulation.launch.py`. The older `niihan_bringup/niihan_hardware.launch.py` starts the legacy EKF/slam_toolbox application; it is not the GLIM 3D hardware profile. Physical L2 operation is not certified by these simulation runs. Real point timestamps/deskew, LiDAR-to-IMU extrinsics, IMU source/bias/gravity, serial/network driver settings and motor calibration must be measured on the actual rover before a hardware GLIM profile is accepted. The supplied `global_shutter=true` and chassis-IMU configuration describe the simulation sensor, not a physical L2 calibration. Ground-height projection is a flat-site baseline and does not certify slopes or drop-offs.
