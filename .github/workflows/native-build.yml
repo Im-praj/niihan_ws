@@ -3,6 +3,9 @@ on:
   push:
     branches: [feat/l2-3d-slam-release]
   workflow_dispatch:
+concurrency:
+  group: binary-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
@@ -21,6 +24,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Prepare disposable runner dependencies
+        run: |
+          sudo apt-get update
+          # Hosted images can have an LLVM libunwind-dev conflicting with ROS/OpenCV.
+          # Resolve that only on this disposable CI runner, not on user laptops.
+          sudo apt-get install -y libunwind-dev
+      - uses: actions/cache@v4
+        with:
+          path: .deps
+          key: cpu-deps-${{ matrix.os }}-${{ hashFiles('scripts/build_dependencies.sh') }}
       - name: Install, build and validate native profile
         env:
           NIIHAN_BUILD_JOBS: '2'
