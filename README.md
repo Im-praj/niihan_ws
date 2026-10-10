@@ -21,6 +21,23 @@ Install ROS Humble and Gazebo Harmonic from their official instructions. Use the
 
 GLIM source prerequisites: GTSAM 4.3a0 (`3ad4b4c3cb28394c9597f48fa02dad361c8450e3`), gtsam_points v1.2.2 (`9d32e7dbecf6015560d84b4901d6b0a6f483ec46`), Eigen, Boost, OpenMP, fmt, spdlog and OpenCV. See [official GLIM installation](https://koide3.github.io/glim/installation.html). Choose CPU dependencies/builds. CUDA and Iridescence are not required for this profile; the browser remains graphical with `BUILD_WITH_VIEWER=OFF`. This flag disables GLIM's separate desktop editor, not Gazebo or the dashboard. Record dependency versions before comparison runs.
 
+## Quick setup and visible launch
+
+On Ubuntu 22.04 amd64 with a graphical desktop:
+
+```bash
+git clone --recurse-submodules --branch feat/l2-3d-slam-release https://github.com/Im-praj/niihan_ws.git
+cd niihan_ws
+./setup.sh
+./run.sh
+```
+
+If already cloned, use `git pull --ff-only origin feat/l2-3d-slam-release` instead of cloning again. Setup uses sudo for apt packages and official ROS/Gazebo repository configuration when needed. It compiles pinned CPU GTSAM/gtsam_points into `.deps/install`, builds the supported package set and runs validation. Compilation can take considerable time; leave the terminal open. It does not install graphics drivers. Logs and failure details are saved in `.setup/logs`. Setup stops on failure; do not run `run.sh` until it succeeds.
+
+`./setup.sh --check` checks prerequisites/package lookup without installing. `--no-system` skips apt for a prepared host. `--use-system-deps` reuses existing compatible GTSAM/gtsam_points for an already commissioned development machine. `--clean` preserves build/install/log in `.setup/backups` before rebuilding; use this for incomplete old overlays. The scripts start with a clean ROS environment and isolate pytest from unrelated automatic plugin loading. They never delete source or modify system Python with pip.
+
+`run.sh` starts visible Gazebo and RViz, then opens the local dashboard when its HTTP server responds. It rejects headless overrides and occupied dashboard ports. Optional launch arguments, such as `seed:=42`, can follow `./run.sh`. This convenience path does not change the incomplete release acceptance status described below. Package installation on a fresh OS and GPU rendering on another laptop remain unverified.
+
 ## Clone and build
 
 ```bash

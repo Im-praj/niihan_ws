@@ -3,6 +3,7 @@ set -eo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Start in a fresh shell; do not source another NIIHAN workspace first.
 source /opt/ros/humble/setup.bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/environment.sh"
 cd "$root"
 export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-2}"
 export MAKEFLAGS="${MAKEFLAGS:--j2}"
