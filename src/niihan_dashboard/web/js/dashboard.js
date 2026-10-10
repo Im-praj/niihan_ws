@@ -143,7 +143,9 @@ function connectWebSocket() {
         } else if (data.type === "pointcloud") {
             if (viewer3d) {
                 viewer3d.updatePointCloud(data.data);
-                document.getElementById('map-status-3d').textContent = '3D POINT CLOUD: READY';
+                if (data.pose) viewer3d.updateRobotPose(data.pose.x,data.pose.y,data.pose.z,data.pose.yaw,data.pose.roll,data.pose.pitch);
+                document.getElementById('map-status-3d').textContent = data.pose ?
+                    `3D CLOUD ${data.stamp.toFixed(2)} s · X ${data.pose.x.toFixed(2)} Y ${data.pose.y.toFixed(2)} θ ${(data.pose.yaw*180/Math.PI).toFixed(1)}°` : '3D POINT CLOUD: READY';
             }
         } else if (data.type === "robot_model") {
             if (viewer3d) viewer3d.updateRobotModel(data);
@@ -213,7 +215,7 @@ function updateTelemetry(data) {
     elNav.className = nav2Ready ? "status-badge ok" : "status-badge error";
     
     robotPose = data.pose;
-    if (viewer3d) viewer3d.updateRobotPose(robotPose.x, robotPose.y, robotPose.z, robotPose.yaw);
+    if (viewer3d) viewer3d.updateRobotPose(robotPose.x, robotPose.y, robotPose.z, robotPose.yaw, robotPose.roll, robotPose.pitch);
     if (viewer2d) viewer2d.updateRobotPose(robotPose.x, robotPose.y, robotPose.yaw);
     
     // Mission

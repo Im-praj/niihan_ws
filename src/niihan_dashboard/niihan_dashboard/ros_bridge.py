@@ -21,7 +21,7 @@ from nav2_msgs.action import NavigateToPose
 from nav2_msgs.msg import CostmapFilterInfo
 from action_msgs.msg import GoalStatus
 from lifecycle_msgs.srv import GetState
-from tf2_ros import Buffer, TransformListener
+from tf2_ros import Buffer, TransformListener, TransformException
 from cv_bridge import CvBridge
 
 from niihan_dashboard.safety_manager import SafetyManager
@@ -89,6 +89,7 @@ class ROSBridgeNode(Node):
         self.path_history = []
         self.pointcloud_data = []
         self.pc_generation = 0
+        self.pointcloud_metadata = None
         self.last_pc_time = 0.0
         self._active_navigation = None
         self._next_request_id = 0
@@ -179,6 +180,19 @@ class ROSBridgeNode(Node):
         now = time.monotonic()
         if now - self.last_pc_time < 0.2:
             return
+        # Pair the rendered cloud with TF at its own timestamp, never latest TF.
+        try:
+            transform = self.tf_buffer.lookup_transform(self.global_frame, self.base_frame,
+                                                       rclpy.time.Time.from_msg(msg.header.stamp))
+            if msg.header.frame_id != self.global_frame:
+                self.get_logger().warning('Display cloud must be in '+self.global_frame)
+                return
+            t = transform.transform.translation; q = transform.transform.rotation
+            roll,pitch,yaw = euler_from_quaternion(q.x,q.y,q.z,q.w)
+            pose = {'x':t.x,'y':t.y,'z':t.z,'yaw':yaw,'roll':roll,'pitch':pitch}
+            if not all(math.isfinite(v) for v in pose.values()):return
+        except TransformException:
+            return
         self.last_pc_time = now
         import sensor_msgs_py.point_cloud2 as pc2
         stride = max(3, math.ceil(msg.width * msg.height / 10000))
@@ -194,6 +208,7 @@ class ROSBridgeNode(Node):
             return
         with self._state_lock:
             self.pointcloud_data = points
+            self.pointcloud_metadata = {'frame_id':msg.header.frame_id,'stamp':msg.header.stamp.sec+msg.header.stamp.nanosec/1e9,'pose_stamp':msg.header.stamp.sec+msg.header.stamp.nanosec/1e9,'pose':pose}
             self.pc_generation += 1
 
     @synchronized
@@ -227,8 +242,8 @@ class ROSBridgeNode(Node):
             values = (translation.x, translation.y, translation.z, q.x, q.y, q.z, q.w)
             if not all(math.isfinite(value) for value in values) or sum(v * v for v in values[3:]) < 1e-12:
                 return False
-            _, _, yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)
-            self.telemetry['pose'].update(x=translation.x, y=translation.y, z=translation.z, yaw=yaw)
+            roll, pitch, yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)
+            self.telemetry['pose'].update(x=translation.x, y=translation.y, z=translation.z, yaw=yaw,roll=roll,pitch=pitch)
             localization.update(health='OK', confidence=None)
             self.pose_valid = True
             return True
@@ -679,4 +694,4 @@ class ROSBridgeNode(Node):
 
     @synchronized
     def get_pointcloud_json(self):
-        return json.dumps({'type': 'pointcloud', 'data': self.pointcloud_data})
+        return json.dumps({'type': 'pointcloud', 'data': self.pointcloud_data, **(self.pointcloud_metadata or {})})

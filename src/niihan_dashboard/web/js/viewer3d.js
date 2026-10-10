@@ -161,9 +161,9 @@ class Viewer3D {
         }
     }
 
-    updateRobotPose(x, y, z, yaw) {
+    updateRobotPose(x, y, z, yaw, roll=0, pitch=0) {
         this.robotMarker.position.set(x, y, z);
-        this.robotMarker.rotation.z = yaw;
+        this.robotMarker.rotation.set(roll,pitch,yaw,'ZYX');
     }
     
     updatePointCloud(data) {

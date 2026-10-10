@@ -141,6 +141,12 @@ def test_display_cloud_conversion_is_bounded_before_python_iteration():
     node = NS(last_pc_time=0.0, _state_lock=threading.RLock(), pc_generation=0,
               get_logger=lambda: NS(warning=lambda message: None))
     msg = PointCloud2()
+    msg.header.frame_id='map';msg.header.stamp.sec=7
+    requested=[]
+    def lookup(parent,child,stamp):
+        requested.append(stamp.nanoseconds)
+        return NS(transform=NS(translation=NS(x=1.,y=2.,z=3.),rotation=NS(x=0.,y=0.,z=0.,w=1.)))
+    node.tf_buffer=NS(lookup_transform=lookup);node.global_frame='map';node.base_frame='base_footprint'
     msg.height, msg.width = 1, 100_000
     msg.point_step, msg.row_step = 12, 1_200_000
     msg.fields = [PointField(name=n, offset=i*4, datatype=7, count=1)
@@ -149,6 +155,9 @@ def test_display_cloud_conversion_is_bounded_before_python_iteration():
     ROSBridgeNode.pointcloud_callback(node, msg)
     assert len(node.pointcloud_data) <= 30_000
     assert node.pc_generation == 1
+    assert requested == [7_000_000_000]
+    assert node.pointcloud_metadata['stamp']==node.pointcloud_metadata['pose_stamp']==7.
+    assert node.pointcloud_metadata['pose']['x']==1.
 
 @pytest.mark.parametrize('ros_now,wall_now,expected', [(10.2, 101.5, True), (11.1, 101.5, False), (10.2, 103.1, False)])
 def test_pose_age_and_paused_clock_have_separate_limits(monkeypatch, ros_now, wall_now, expected):
