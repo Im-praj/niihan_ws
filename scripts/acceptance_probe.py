@@ -24,7 +24,9 @@ async def run():
     n.create_subscription(String,'/niihan/localizer/status',lambda m:log({'kind':'localizer','data':json.loads(m.data)}),10)
     n.create_subscription(String,'/niihan/slam/status',lambda m:log({'kind':'slam','data':json.loads(m.data)}),10)
     async def spin():
-        while rclpy.ok():rclpy.spin_once(n,timeout_sec=0.);await asyncio.sleep(.01)
+        while rclpy.ok():
+            for _ in range(20):rclpy.spin_once(n,timeout_sec=0.)
+            await asyncio.sleep(.01)
     st=asyncio.create_task(spin())
     async with websockets.connect('ws://127.0.0.1:8081',max_size=30_000_000) as w:
         async def read():

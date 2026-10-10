@@ -23,7 +23,9 @@ async def run():
     n.create_subscription(Odometry,'/niihan/ground_truth',ground,qos_profile_sensor_data)
     n.create_subscription(NavPath,'/plan',path,10)
     async def spin():
-        while rclpy.ok():rclpy.spin_once(n,timeout_sec=0);await asyncio.sleep(.01)
+        while rclpy.ok():
+            for _ in range(20):rclpy.spin_once(n,timeout_sec=0)
+            await asyncio.sleep(.01)
     st=asyncio.create_task(spin())
     def zero_after(start,delay,end):
         samples=[r for r in rows if r['kind']=='drive' and start+delay<r['time']<end]
