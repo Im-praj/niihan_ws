@@ -1,0 +1,49 @@
+diff --git a/src/glim/viewer/standard_viewer_ui.cpp b/src/glim/viewer/standard_viewer_ui.cpp
+index 7104bc1..0d8d392 100644
+--- a/src/glim/viewer/standard_viewer_ui.cpp
++++ b/src/glim/viewer/standard_viewer_ui.cpp
+@@ -16,6 +16,7 @@
+ #include <glk/primitives/primitives.hpp>
+ #include <guik/spdlog_sink.hpp>
+ #include <guik/viewer/light_viewer.hpp>
++#include <guik/camera/basic_projection_control.hpp>
+ 
+ #include <glim/viewer/standard_viewer_mem.hpp>
+ 
+@@ -134,25 +135,32 @@ void StandardViewer::drawable_selection() {
+   std::vector<const char*> camera_modes = {"STANDARD", "FPS", "TPS", "TOPDOWN"};
+   ImGui::SetNextItemWidth(92);
+   if (ImGui::Combo("camera_mode", &camera_mode, camera_modes.data(), camera_modes.size())) {
++    // Helper to create a perspective projection control
++    auto make_persp = [&](float fov_deg, float near_val, float far_val) {
++      auto proj = std::make_shared<guik::BasicProjectionControl>(Eigen::Vector2i(1920, 1080));
++      proj->set_fovy(fov_deg);
++      proj->set_depth_range(Eigen::Vector2f(near_val, far_val));
++      viewer->set_projection_control(proj);
++    };
+     switch (camera_mode) {
+       default:
+       case 0:
+         viewer->use_orbit_camera_control();
+-        viewer->use_perspective_projection_control(30.0f, 1.0, 1000.0f);
++        make_persp(30.0f, 1.0f, 1000.0f);
+         break;
+       case 1:
+         viewer->use_sensor_view_camera_control(Eigen::Translation3f(-0.05f, 0.0f, 0.0f) * Eigen::Isometry3f::Identity(), 1e-3, 1e-3);
+-        viewer->use_perspective_projection_control(90.0f, 0.1f, 500.0f);
++        make_persp(90.0f, 0.1f, 500.0f);
+         viewer->disable_xy_grid();
+         break;
+       case 2:
+         viewer->use_sensor_view_camera_control();
+-        viewer->use_perspective_projection_control(45.0f, 0.1f, 500.0f);
++        make_persp(45.0f, 0.1f, 500.0f);
+         viewer->disable_xy_grid();
+         break;
+       case 3:
+         viewer->use_topdown_camera_control();
+-        viewer->use_perspective_projection_control(30.0f, 1.0, 1000.0f);
++        make_persp(30.0f, 1.0f, 1000.0f);
+         break;
+     }
+   }

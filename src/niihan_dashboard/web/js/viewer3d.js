@@ -10,7 +10,7 @@ class Viewer3D {
         const aspect = this.container.clientWidth / this.container.clientHeight;
         this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
         // Position camera to look at the ground plane
-        this.camera.position.set(0, 10, 10);
+        this.camera.position.set(3, -4, 3);
         this.camera.up.set(0, 0, 1); // Z is up in ROS
         
         // Renderer setup
@@ -108,43 +108,62 @@ class Viewer3D {
     createRobotMarker() {
         this.robotMarker = new THREE.Group();
         
-        // Body (approx 0.7 x 0.5 x 0.3)
-        const bodyGeo = new THREE.BoxGeometry(0.7, 0.5, 0.3);
-        const bodyMat = new THREE.MeshPhongMaterial({ color: 0x00bcd4, transparent: true, opacity: 0.8 });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        body.position.z = 0.15;
-        this.robotMarker.add(body);
-        
-        // Wheels
-        const wheelGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.1, 16);
-        const wheelMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
-        
-        const positions = [
-            [0.2, 0.3, 0.1], [0.2, -0.3, 0.1],
-            [-0.2, 0.3, 0.1], [-0.2, -0.3, 0.1]
-        ];
-        
-        positions.forEach(pos => {
-            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-            wheel.position.set(pos[0], pos[1], pos[2]);
-            wheel.rotation.x = Math.PI / 2;
-            this.robotMarker.add(wheel);
-        });
-        
-        // Direction arrow
-        const dirGeo = new THREE.ConeGeometry(0.1, 0.2, 16);
-        const dirMat = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-        const dir = new THREE.Mesh(dirGeo, dirMat);
-        dir.rotation.z = -Math.PI / 2; // point along X axis
-        dir.position.set(0.4, 0, 0.3);
-        this.robotMarker.add(dir);
-        
         this.scene.add(this.robotMarker);
     }
     
-    updateRobotPose(x, y, z, yaw) {
+    updateRobotModel(model) {
+        const links = new Map();
+        const transform = (group, origin) => {
+            group.position.fromArray(origin.xyz);
+            group.rotation.set(...origin.rpy, 'ZYX');
+        };
+        for (const link of model.links) {
+            const group = new THREE.Group();
+            group.name = link.name;
+            for (const visual of link.visuals) {
+                const shape = visual.geometry;
+                let geometry;
+                if (shape.kind === 'box') geometry = new THREE.BoxGeometry(...shape.size);
+                else if (shape.kind === 'cylinder') {
+                    geometry = new THREE.CylinderGeometry(shape.radius, shape.radius, shape.length, 32);
+                    geometry.rotateX(Math.PI / 2); // URDF cylinders extend along Z.
+                } else if (shape.kind === 'sphere') geometry = new THREE.SphereGeometry(shape.radius, 24, 16);
+                else continue;
+                const rgba = visual.rgba;
+                const material = new THREE.MeshPhongMaterial({
+                    color: new THREE.Color(rgba[0], rgba[1], rgba[2]),
+                    opacity: rgba[3], transparent: rgba[3] < 1
+                });
+                const mesh = new THREE.Mesh(geometry, material);
+                transform(mesh, visual);
+                group.add(mesh);
+            }
+            links.set(link.name, group);
+        }
+        this.robotJoints = new Map();
+        for (const joint of model.joints) {
+            const child = links.get(joint.child);
+            transform(child, joint);
+            this.robotJoints.set(joint.name, {child, axis:new THREE.Vector3(...(joint.axis || [1,0,0])).normalize(), rest:child.quaternion.clone(), kind:joint.kind});
+            links.get(joint.parent).add(child);
+        }
+        this.clearGroup(this.robotMarker);
+        this.robotMarker.add(links.get(model.root));
+        this.robotMarker.name = model.name;
+    }
+
+    updateJointStates(positions) {
+        if (!this.robotJoints) return;
+        for (const [name, angle] of Object.entries(positions)) {
+            const joint = this.robotJoints.get(name);
+            if (!joint || !Number.isFinite(angle) || !['continuous','revolute'].includes(joint.kind)) continue;
+            joint.child.quaternion.copy(joint.rest).multiply(new THREE.Quaternion().setFromAxisAngle(joint.axis, angle));
+        }
+    }
+
+    updateRobotPose(x, y, z, yaw, roll=0, pitch=0) {
         this.robotMarker.position.set(x, y, z);
-        this.robotMarker.rotation.z = yaw;
+        this.robotMarker.rotation.set(roll,pitch,yaw,'ZYX');
     }
     
     updatePointCloud(data) {
@@ -181,23 +200,14 @@ class Viewer3D {
         waypoints.forEach(wp => {
             const group = new THREE.Group();
             group.position.set(wp.x, wp.y, wp.z);
-            group.rotation.z = wp.yaw;
             
             // Sphere
             const color = wp.status === "ACTIVE" ? 0xffff00 : (wp.status === "COMPLETED" ? 0x00ff00 :
                 (['FAILED', 'MISSED'].includes(wp.status) ? 0xff4444 : 0x00bcd4));
-            const sphGeo = new THREE.SphereGeometry(0.2, 16, 16);
+            const sphGeo = new THREE.SphereGeometry(0.07, 16, 16);
             const sphMat = new THREE.MeshPhongMaterial({ color: color });
             const sphere = new THREE.Mesh(sphGeo, sphMat);
             group.add(sphere);
-            
-            // Arrow pointing in yaw direction (X axis)
-            const arrGeo = new THREE.ConeGeometry(0.1, 0.3, 16);
-            const arrMat = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-            const arrow = new THREE.Mesh(arrGeo, arrMat);
-            arrow.rotation.z = -Math.PI / 2;
-            arrow.position.x = 0.3;
-            group.add(arrow);
             
             this.wpGroup.add(group);
         });

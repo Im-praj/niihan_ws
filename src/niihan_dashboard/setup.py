@@ -16,6 +16,7 @@ setup(
         (os.path.join('share', package_name, 'web'), glob('web/*.*')),
         (os.path.join('share', package_name, 'web/css'), glob('web/css/*.*')),
         (os.path.join('share', package_name, 'web/js'), glob('web/js/*.*')),
+        (os.path.join('share', package_name, 'web/vendor'), glob('web/vendor/*.*')),
     ],
     install_requires=['setuptools', 'websockets', 'aiohttp'],
     zip_safe=True,

@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 from launch import LaunchContext
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
 from launch.utilities import normalize_to_list_of_substitutions, perform_substitutions
 from test_launch_sim_time import PACKAGE, load_launch
 
@@ -52,7 +52,10 @@ def test_seed_and_headless_arguments_reach_gazebo(headless):
     args = perform_substitutions(context, normalize_to_list_of_substitutions(dict(include.launch_arguments)['gz_args']))
     assert 'niihan_construction_site.sdf' in args
     assert '--seed 123' in args
-    assert (' -s ' in args) == (headless == 'true')
+    assert ' -s ' in args
+    timer = next(a for a in description.entities if isinstance(a, TimerAction) and any(isinstance(x, IncludeLaunchDescription) and dict(x.launch_arguments).get('gz_args')=='-g' for x in a.actions))
+    gui = next(x for x in timer.actions if isinstance(x, IncludeLaunchDescription))
+    assert gui.condition.evaluate(context) == (headless == 'false')
     assert ('--headless-rendering' in args) == (headless == 'true')
 
 

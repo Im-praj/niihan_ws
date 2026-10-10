@@ -13,7 +13,7 @@ class MissionManager:
         self.message = ''
 
     def _ensure_editable(self):
-        if self.state == 'RUNNING':
+        if self.state in ('RUNNING', 'PAUSING', 'PAUSED'):
             raise ValueError('Cancel the running mission before editing it.')
 
     @staticmethod

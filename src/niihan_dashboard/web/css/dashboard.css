@@ -301,7 +301,8 @@ body {
 }
 
 .bottom-panel {
-    height: 300px;
+    height: 360px;
+    flex-shrink: 0;
     background-color: var(--panel-bg);
     border-top: 1px solid var(--border-color);
     display: flex;
@@ -327,6 +328,7 @@ body {
 }
 
 .mission-content {
+    min-height: 0;
     display: flex;
     flex: 1;
     overflow: hidden;
@@ -378,6 +380,8 @@ body {
 }
 
 .execution-section {
+    min-height: 0;
+    overflow-y: auto;
     flex: 1;
     padding: 10px;
     display: flex;
@@ -410,7 +414,8 @@ body {
 }
 
 .exec-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -426,31 +431,18 @@ body {
     text-align: center;
 }
 
-/* Landscape orientation overlay for mobile */
-.landscape-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: rgba(0, 0, 0, 0.95);
-    z-index: 9999;
-    color: white;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    padding: 20px;
+/* Preserve access to controls in narrow desktop panels and portrait screens. */
+@media screen and (max-width: 900px) {
+    body { height: auto; min-height: 100vh; overflow: auto; }
+    .top-bar { flex-wrap: wrap; height: auto; gap: 8px; }
+    .top-stats { flex-wrap: wrap; gap: 5px; }
+    .main-layout { flex: none; height: auto; flex-direction: column; }
+    .view-panel { flex: none; height: 420px; }
+    .side-panel { flex: none; overflow: visible; }
+    .bottom-panel { height: auto; min-height: 300px; flex-shrink: 0; }
+    .mission-content { flex-direction: column; overflow: visible; }
+    .table-container { overflow: auto; }
+    .mission-header { flex-wrap: wrap; gap: 8px; }
 }
 
-.landscape-overlay h2 {
-    color: var(--accent-color);
-    margin-bottom: 10px;
-}
-
-@media screen and (max-width: 900px) and (orientation: portrait) {
-    .landscape-overlay {
-        display: flex;
-    }
-}
+#tel-health, #tel-gnss { overflow-wrap: anywhere; }

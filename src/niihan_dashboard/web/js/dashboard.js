@@ -107,10 +107,18 @@ function connectWebSocket() {
 
     ws.onclose = () => {
         isConnected = false;
+        camStream.removeAttribute("src");
+        camStream.alt = "Camera disconnected";
         elConn.textContent = "DISCONNECTED";
         elConn.className = "status-badge error";
         document.getElementById('btn-start-mission').disabled = true;
+        document.getElementById('btn-pause-mission').disabled = true;
+        document.getElementById('btn-resume-mission').disabled = true;
         nav2Ready = false;
+        elLoc.textContent = 'LOC: DISCONNECTED';elLoc.className = 'status-badge error';
+        document.getElementById('slam-status').textContent = 'SLAM: DISCONNECTED';
+        document.getElementById('tel-health').textContent = 'Supervisor disconnected';
+        document.getElementById('vel-status').textContent = 'VEL: UNKNOWN';
         elNav.textContent = 'NAV2: UNKNOWN';
         elNav.className = 'status-badge error';
         document.getElementById('map-status-2d').textContent = '2D MAP: DISCONNECTED — DISPLAYING LAST MAP';
@@ -135,9 +143,16 @@ function connectWebSocket() {
         } else if (data.type === "pointcloud") {
             if (viewer3d) {
                 viewer3d.updatePointCloud(data.data);
-                document.getElementById('map-status-3d').textContent = '3D POINT CLOUD: READY';
+                if (data.pose) viewer3d.updateRobotPose(data.pose.x,data.pose.y,data.pose.z,data.pose.yaw,data.pose.roll,data.pose.pitch);
+                document.getElementById('map-status-3d').textContent = data.pose ?
+                    `3D CLOUD ${data.stamp.toFixed(2)} s · X ${data.pose.x.toFixed(2)} Y ${data.pose.y.toFixed(2)} θ ${(data.pose.yaw*180/Math.PI).toFixed(1)}°` : '3D POINT CLOUD: READY';
             }
+        } else if (data.type === "robot_model") {
+            if (viewer3d) viewer3d.updateRobotModel(data);
+        } else if (data.type === "joint_states") {
+            if (viewer3d) viewer3d.updateJointStates(data.positions);
         } else if (data.type === "camera") {
+            camStream.alt = "Forward camera live";
             camStream.src = "data:image/jpeg;base64," + data.image;
         } else if (data.type === "mission_write_response" || data.type === 'command_response' || data.type === 'error') {
             showCommandStatus(data.message, data.success === true);
@@ -146,12 +161,23 @@ function connectWebSocket() {
 }
 
 function updateTelemetry(data) {
+    const runtimeEl = document.getElementById('runtime-mode');
+    if (runtimeEl) runtimeEl.textContent = (data.slam || {}).simulation === true ? 'SIMULATION' : 'UNKNOWN';
+    const slamEl = document.getElementById('slam-status');
+    if (slamEl) slamEl.textContent = 'SLAM: ' + ((data.slam || {}).backend || 'unknown');
+    const health = data.hardware_health || {};
+    const gnss = data.gnss || {};
+    const healthEl = document.getElementById("tel-health");
+    const gnssEl = document.getElementById("tel-gnss");
+    if (healthEl) healthEl.textContent = health.ready ? "Sensors ready" : "Motion inhibited: " + ((health.faults || []).join(", ") || "waiting for supervisor");
+    if (gnssEl) gnssEl.textContent = "GNSS: " + (gnss.quality || "unknown") + (Number.isFinite(gnss.latitude) && Number.isFinite(gnss.longitude) ? " | " + gnss.latitude.toFixed(7) + ", " + gnss.longitude.toFixed(7) : "");
     // Pose
     document.getElementById('tel-x').textContent = data.pose.x.toFixed(2);
     document.getElementById('tel-y').textContent = data.pose.y.toFixed(2);
     document.getElementById('tel-z').textContent = data.pose.z.toFixed(2);
     document.getElementById('tel-yaw').textContent = (data.pose.yaw * 180 / Math.PI).toFixed(1);
     
+    document.getElementById('vel-status').textContent = 'VEL: ' + data.velocity.linear_x.toFixed(2) + ' m/s';
     // Vel
     document.getElementById('tel-vel-x').textContent = data.velocity.linear_x.toFixed(2);
     document.getElementById('tel-vel-z').textContent = data.velocity.angular_z.toFixed(2);
@@ -177,6 +203,8 @@ function updateTelemetry(data) {
         btnEstop.style.display = "none";
         btnClearEstop.style.display = "block";
         document.getElementById('btn-start-mission').disabled = true;
+        document.getElementById('btn-pause-mission').disabled = true;
+        document.getElementById('btn-resume-mission').disabled = true;
     } else {
         btnEstop.style.display = "block";
         btnClearEstop.style.display = "none";
@@ -187,13 +215,13 @@ function updateTelemetry(data) {
     elNav.className = nav2Ready ? "status-badge ok" : "status-badge error";
     
     robotPose = data.pose;
-    if (viewer3d) viewer3d.updateRobotPose(robotPose.x, robotPose.y, robotPose.z, robotPose.yaw);
+    if (viewer3d) viewer3d.updateRobotPose(robotPose.x, robotPose.y, robotPose.z, robotPose.yaw, robotPose.roll, robotPose.pitch);
     if (viewer2d) viewer2d.updateRobotPose(robotPose.x, robotPose.y, robotPose.yaw);
     
     // Mission
     const m = data.mission;
     missionState.textContent = m.state;
-    missionIsRunning = ['RUNNING', 'CANCELLING'].includes(m.state);
+    missionIsRunning = ['RUNNING', 'CANCELLING', 'PAUSING', 'PAUSED'].includes(m.state);
     waypoints = m.waypoints;
     const signature = JSON.stringify(waypoints);
     if (signature !== waypointSignature) {
@@ -210,6 +238,8 @@ function updateTelemetry(data) {
     document.getElementById('btn-start-mission').disabled =
         !isConnected || m.state !== 'READY' || mode !== 'AUTO' || estopActive || !nav2Ready || !poseValid;
     
+    document.getElementById('btn-pause-mission').disabled = !isConnected || m.state !== 'RUNNING';
+    document.getElementById('btn-resume-mission').disabled = !isConnected || m.state !== 'PAUSED' || mode !== 'AUTO' || estopActive || !nav2Ready || !poseValid;
     // Geofence
     const gf = data.geofence;
     geofencePolygon = gf.enabled ? gf.polygon : [];
@@ -224,13 +254,12 @@ function onMapClick(x, y, z) {
     if (interactionMode === "ADD_WP") {
         sendCommand({
             action: "add_waypoint",
-            x: x, y: y, z: 0.0, // force z=0 for ground robot
-            yaw: 0 // default, can be edited
+            x: x, y: y, z: robotPose.z
         });
     } else if (interactionMode === "SET_GOAL") {
         if (!sendCommand({
             action: "nav_goal",
-            x: x, y: y, yaw: 0
+            x: x, y: y, z: robotPose.z
         })) return;
         interactionMode = "NONE";
         document.getElementById('btn-set-goal').textContent = "SET SINGLE GOAL";
@@ -291,6 +320,8 @@ document.getElementById('btn-start-mission').addEventListener('click', () => {
     sendCommand({action: "start_mission"});
 });
 
+document.getElementById('btn-pause-mission').addEventListener('click', () => sendCommand({action:'pause_mission'}));
+document.getElementById('btn-resume-mission').addEventListener('click', () => sendCommand({action:'resume_mission'}));
 document.getElementById('btn-cancel-mission').addEventListener('click', () => {
     sendCommand({action: "cancel_mission"});
     document.getElementById('btn-start-mission').disabled = true;
@@ -300,6 +331,8 @@ document.getElementById('btn-clear-mission').addEventListener('click', () => {
     if(confirm("Clear entire mission?")) {
         sendCommand({action: "clear_mission"});
         document.getElementById('btn-start-mission').disabled = true;
+        document.getElementById('btn-pause-mission').disabled = true;
+        document.getElementById('btn-resume-mission').disabled = true;
     }
 });
 
@@ -337,12 +370,6 @@ function renderWaypointTable() {
         // Z
         td = document.createElement('td');
         td.innerHTML = `<input type="number" step="0.1" value="${wp.z.toFixed(2)}" onchange="updateWp(${wp.id}, 'z', this.value)">`;
-        tr.appendChild(td);
-        
-        // YAW
-        td = document.createElement('td');
-        let yawDeg = (wp.yaw * 180 / Math.PI).toFixed(1);
-        td.innerHTML = `<input type="number" step="1" value="${yawDeg}" onchange="updateWp(${wp.id}, 'yaw', this.value)">`;
         tr.appendChild(td);
         
         // Status

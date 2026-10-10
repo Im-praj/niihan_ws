@@ -28,7 +28,8 @@
     <child link="gnss_link"/>
     <origin xyz="0 0 0.06" rpy="0 0 0"/>
   </joint>
-  <gazebo reference="gnss_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="gnss_link">
     <sensor name="gnss_sensor" type="navsat">
       <always_on>true</always_on>
       <update_rate>10</update_rate>
@@ -36,6 +37,7 @@
       <gz:frame_id>gnss_link</gz:frame_id>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- 2D LiDAR: publishes sensor_msgs/LaserScan on /scan for navigation/obstacle detection -->
   <link name="chassis_lidar_link">
@@ -57,7 +59,8 @@
     <child link="chassis_lidar_link"/>
     <origin xyz="0 0 0.22" rpy="0 0 0"/>
   </joint>
-  <gazebo reference="chassis_lidar_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="chassis_lidar_link">
     <sensor name="lidar_sensor" type="gpu_lidar">
       <always_on>true</always_on>
       <update_rate>10</update_rate>
@@ -77,6 +80,7 @@
       </lidar>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- IMU -->
   <link name="imu_link">
@@ -127,7 +131,8 @@
     <child link="prox_front_link"/>
     <origin xyz="${chassis_length/2} 0 0" rpy="0 0 0"/>
   </joint>
-  <gazebo reference="prox_front_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="prox_front_link">
     <sensor name="prox_front_sensor" type="gpu_lidar">
       <always_on>true</always_on>
       <update_rate>10</update_rate>
@@ -139,6 +144,7 @@
       </lidar>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- Rear proximity sensor -->
   <link name="prox_rear_link">
@@ -160,7 +166,8 @@
     <child link="prox_rear_link"/>
     <origin xyz="${-chassis_length/2} 0 0" rpy="0 0 3.14159"/>
   </joint>
-  <gazebo reference="prox_rear_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="prox_rear_link">
     <sensor name="prox_rear_sensor" type="gpu_lidar">
       <always_on>true</always_on>
       <update_rate>10</update_rate>
@@ -172,6 +179,7 @@
       </lidar>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- Contact bumper (front) -->
   <link name="bumper_link">
@@ -193,7 +201,8 @@
     <child link="bumper_link"/>
     <origin xyz="${chassis_length/2 + 0.01} 0 -0.02" rpy="0 0 0"/>
   </joint>
-  <gazebo reference="bumper_link">
+  <xacro:unless value="$(arg minimal_sensors)">
+<gazebo reference="bumper_link">
     <sensor name="bumper_sensor" type="contact">
       <always_on>true</always_on>
       <update_rate>30</update_rate>
@@ -202,6 +211,7 @@
       <gz:frame_id>bumper_link</gz:frame_id>
     </sensor>
   </gazebo>
+</xacro:unless>
 
   <!-- Forward work light (fixed white) -->
   <link name="work_light_link">
@@ -265,150 +275,5 @@
     </light>
   </gazebo>
 
-  <!-- Dock-approach AprilTag fiducial detector camera -->
-  <link name="fiducial_cam_link">
-    <inertial>
-      <mass value="0.02"/>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <inertia ixx="0.000001" iyy="0.000001" izz="0.000001" ixy="0" ixz="0" iyz="0"/>
-    </inertial>
-    <visual>
-      <geometry><box size="0.02 0.02 0.02"/></geometry>
-      <material name="niihan_fiducial_cam_black"><color rgba="0.05 0.05 0.05 1"/></material>
-    </visual>
-    <collision>
-      <geometry><box size="0.02 0.02 0.02"/></geometry>
-    </collision>
-  </link>
-  <joint name="fiducial_cam_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="fiducial_cam_link"/>
-    <origin xyz="${-chassis_length/2 + 0.02} 0 0.03" rpy="0 0 3.14159"/>
-  </joint>
-  <gazebo reference="fiducial_cam_link">
-    <sensor name="fiducial_camera" type="camera">
-      <always_on>true</always_on>
-      <update_rate>15</update_rate>
-      <topic>/niihan/dock/fiducial/image_raw</topic>
-      <gz:frame_id>fiducial_cam_link</gz:frame_id>
-      <camera>
-        <horizontal_fov>1.2</horizontal_fov>
-        <image><width>640</width><height>480</height><format>R8G8B8</format></image>
-        <clip><near>0.05</near><far>10</far></clip>
-      </camera>
-    </sensor>
-  </gazebo>
-
-
-  <!-- ============ Intel RealSense D435i ============ -->
-  <link name="d435i_link">
-    <visual>
-      <geometry><box size="0.025 0.090 0.025"/></geometry>
-      <material name="d435i_aluminum"><color rgba="0.5 0.5 0.5 1"/></material>
-    </visual>
-    <collision>
-      <geometry><box size="0.025 0.090 0.025"/></geometry>
-    </collision>
-    <xacro:box_inertia mass="0.072" x="0.025" y="0.090" z="0.025"/>
-  </link>
-
-  <joint name="d435i_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="d435i_link"/>
-    <origin xyz="0.36 0 0.2" rpy="0 0 0"/>
-  </joint>
-
-  <!-- Optical frames -->
-  <link name="d435i_color_optical_frame"/>
-  <joint name="d435i_color_optical_joint" type="fixed">
-    <parent link="d435i_link"/>
-    <child link="d435i_color_optical_frame"/>
-    <origin xyz="0 0.015 0" rpy="-1.57079632679 0 -1.57079632679"/>
-  </joint>
-
-  <link name="d435i_depth_optical_frame"/>
-  <joint name="d435i_depth_optical_joint" type="fixed">
-    <parent link="d435i_link"/>
-    <child link="d435i_depth_optical_frame"/>
-    <origin xyz="0 0 0" rpy="-1.57079632679 0 -1.57079632679"/>
-  </joint>
-
-  <link name="d435i_imu_frame"/>
-  <joint name="d435i_imu_joint" type="fixed">
-    <parent link="d435i_link"/>
-    <child link="d435i_imu_frame"/>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-  </joint>
-
-  <!-- Gazebo Sensors -->
-  <!-- RGB Camera -->
-  <gazebo reference="d435i_color_optical_frame">
-    <sensor type="camera" name="d435i_color_sensor">
-      <always_on>1</always_on>
-      <update_rate>30.0</update_rate>
-      <topic>/niihan/sensors/d435i/color/image_raw</topic>
-      <gz:frame_id>d435i_color_optical_frame</gz:frame_id>
-      <camera name="d435i_color">
-        <horizontal_fov>1.204</horizontal_fov>
-        <image>
-          <width>1280</width>
-          <height>720</height>
-          <format>R8G8B8</format>
-        </image>
-        <clip>
-          <near>0.1</near>
-          <far>100</far>
-        </clip>
-      </camera>
-    </sensor>
-  </gazebo>
-
-  <!-- Depth Camera -->
-  <gazebo reference="d435i_depth_optical_frame">
-    <sensor type="depth_camera" name="d435i_depth_sensor">
-      <always_on>1</always_on>
-      <update_rate>30.0</update_rate>
-      <topic>/niihan/sensors/d435i/depth/image_raw</topic>
-      <gz:frame_id>d435i_depth_optical_frame</gz:frame_id>
-      <camera name="d435i_depth">
-        <horizontal_fov>1.518</horizontal_fov>
-        <image>
-          <width>1280</width>
-          <height>720</height>
-        </image>
-        <clip>
-          <near>0.1</near>
-          <far>10.0</far>
-        </clip>
-        <noise>
-          <type>gaussian</type>
-          <mean>0.0</mean>
-          <stddev>0.01</stddev>
-        </noise>
-      </camera>
-    </sensor>
-  </gazebo>
-
-  <!-- IMU -->
-  <gazebo reference="d435i_imu_frame">
-    <sensor type="imu" name="d435i_imu_sensor">
-      <always_on>1</always_on>
-      <update_rate>200.0</update_rate>
-      <topic>/niihan/sensors/d435i/imu/data</topic>
-      <gz:frame_id>d435i_imu_frame</gz:frame_id>
-      <imu>
-        <angular_velocity>
-          <x><noise type="gaussian"><mean>0</mean><stddev>0.001</stddev></noise></x>
-          <y><noise type="gaussian"><mean>0</mean><stddev>0.001</stddev></noise></y>
-          <z><noise type="gaussian"><mean>0</mean><stddev>0.001</stddev></noise></z>
-        </angular_velocity>
-        <linear_acceleration>
-          <x><noise type="gaussian"><mean>0</mean><stddev>0.01</stddev></noise></x>
-          <y><noise type="gaussian"><mean>0</mean><stddev>0.01</stddev></noise></y>
-          <z><noise type="gaussian"><mean>0</mean><stddev>0.01</stddev></noise></z>
-        </linear_acceleration>
-      </imu>
-    </sensor>
-  </gazebo>
 
 </robot>

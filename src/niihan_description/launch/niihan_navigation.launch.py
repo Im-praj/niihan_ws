@@ -1,4 +1,4 @@
-"""Nav2 Humble bringup with periodic replanning and one arbiter output."""
+"""Native Nav2 bringup with periodic replanning and one arbiter output."""
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -17,10 +17,9 @@ def generate_launch_description():
         source_file=LaunchConfiguration('params_file'),
         root_key='',
         param_rewrites={
-            'default_nav_to_pose_bt_xml': os.path.join(
-                package_dir, 'config', 'navigate_to_pose.xml'),
+            'default_nav_to_pose_bt_xml': LaunchConfiguration('bt_xml'),
             'default_nav_through_poses_bt_xml': os.path.join(
-                package_dir, 'config', 'navigate_through_poses.xml'),
+                package_dir, 'config', 'navigate_through_poses_jazzy.xml' if os.environ.get('ROS_DISTRO')=='jazzy' else 'navigate_through_poses.xml'),
         },
         convert_types=True,
     )
@@ -30,6 +29,7 @@ def generate_launch_description():
             'params_file',
             default_value=os.path.join(package_dir, 'config', 'nav2_params.yaml'),
         ),
+        DeclareLaunchArgument('bt_xml', default_value=os.path.join(package_dir, 'config', 'navigate_to_pose.xml')),
         DeclareLaunchArgument('autostart', default_value='true'),
         GroupAction(actions=[
             # Remaps are first-match and are not recursive. A group-wide cmd_vel

@@ -261,12 +261,7 @@ class Viewer2D {
             this.ctx.beginPath();
             this.ctx.arc(p.x, p.y, 5 * this.pixelRatio, 0, 2 * Math.PI);
             this.ctx.fill();
-            this.ctx.strokeStyle = '#ffffff';
-            this.ctx.beginPath();
-            this.ctx.moveTo(p.x, p.y);
-            this.ctx.lineTo(p.x + Math.cos(waypoint.yaw) * 15 * this.pixelRatio,
-                p.y - Math.sin(waypoint.yaw) * 15 * this.pixelRatio);
-            this.ctx.stroke();
+
         }
     }
 

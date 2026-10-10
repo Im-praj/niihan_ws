@@ -5,7 +5,7 @@
        NIIHAN central sensor mast, mounted mid-body on the chassis.
        Height above chassis top is mast_height (see niihan_properties.xacro).
        Provides mounting frames (fixed joints) for the sensor suite:
-       360 camera ring, PTZ camera, thermal camera, 3D LiDAR.
+       one forward camera and 3D LiDAR.
        Actual sensor links/plugins are added in niihan_sensors*.xacro
        and attach to these mount frames, keeping this file purely
        structural.
@@ -42,7 +42,7 @@
       <material>Gazebo/DarkGrey</material>
     </gazebo>
 
-    <!-- Mount frame at mast top: 360 camera ring + LiDAR + thermal share the head plate -->
+    <!-- Mount frame at mast top: the single forward camera and LiDAR share the head plate -->
     <joint name="mast_head_joint" type="fixed">
       <parent link="mast_link"/>
       <child link="mast_head_link"/>
@@ -78,34 +78,6 @@
 
     <gazebo reference="mast_head_link">
       <material>Gazebo/Black</material>
-    </gazebo>
-
-    <!-- PTZ camera mount: lower on the mast, forward-facing, below the head plate -->
-    <joint name="ptz_mount_joint" type="fixed">
-      <parent link="mast_link"/>
-      <child link="ptz_mount_link"/>
-      <origin xyz="0.03 0 ${mast_height*0.6}" rpy="0 0 0"/>
-    </joint>
-
-    <link name="ptz_mount_link">
-      <visual>
-        <geometry>
-          <box size="0.03 0.03 0.03"/>
-        </geometry>
-        <material name="ptz_mount_grey">
-          <color rgba="0.3 0.3 0.3 1.0"/>
-        </material>
-      </visual>
-      <collision>
-        <geometry>
-          <box size="0.03 0.03 0.03"/>
-        </geometry>
-      </collision>
-      <xacro:box_inertia mass="0.1" x="0.03" y="0.03" z="0.03"/>
-    </link>
-
-    <gazebo reference="ptz_mount_link">
-      <material>Gazebo/Grey</material>
     </gazebo>
 
   </xacro:macro>

@@ -8,6 +8,6 @@ ros2 launch niihan_dashboard dashboard.launch.py use_sim_time:=true
 
 Open http://127.0.0.1:8080. WebSocket commands use port 8081. `bind_host` defaults to `127.0.0.1`; changing it exposes unauthenticated motion controls. Remote operation requires a secured tunnel or authenticated reverse proxy and an appropriate network policy. Use `use_sim_time:=false` only with a separately validated real-time hardware stack.
 
-The 3D view currently depends on CDN-hosted Three.js assets; the 2D map tests do not establish offline 3D rendering readiness. The dashboard software stop is an aid and does not replace the physical emergency stop.
+Three.js and OrbitControls are vendored for offline rendering. The 3D rover geometry and materials come from the live `/robot_description` URDF, preserving link/joint and visual origins. Exactly one forward camera feed is shown. Waypoint acceptance checks fresh XYZ position within 0.25 m; yaw is used for visualization and steering but does not constrain arrival. The dashboard software stop is an aid and does not replace the physical emergency stop.
 
 `test/test_navigation_results.py` covers mission result/cancellation races. `test/test_web_viewer2d.js` checks map rendering, coordinate transforms and input behavior. Run both through `scripts/validate.sh` at the workspace root.

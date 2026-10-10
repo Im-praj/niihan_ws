@@ -24,13 +24,12 @@ def bridge():
     node.mission_manager.add_waypoint(4, 5, yaw=0)
     node.mission_manager.write_mission()
     node.mission_manager.start_mission()
-    node.telemetry = {'pose': {'x': 2, 'y': 3, 'yaw': 0}}
-    node.goal_verify_xy_tolerance = 0.2
-    node.goal_verify_yaw_tolerance = 0.25
+    node.telemetry = {'pose': {'x': 2, 'y': 3, 'z': -0.6, 'yaw': 0}}
+    node.goal_verify_position_tolerance = 0.2
     node.navigation = {'state': 'RUNNING', 'message': ''}
     node._update_pose_from_tf = lambda: True
     operation = {'kind': 'mission', 'targets': node.mission_manager.waypoints.copy(),
-                 'index': 0, 'target': {'x': 2, 'y': 3, 'yaw': 0},
+                 'index': 0, 'target': {'x': 2, 'y': 3, 'z': -0.6, 'yaw': 0},
                  'request_id': 1, 'cancelling': False}
     node._active_navigation = operation
     node.get_logger = lambda: NS(info=lambda message: None, error=lambda message: None)
@@ -142,6 +141,12 @@ def test_display_cloud_conversion_is_bounded_before_python_iteration():
     node = NS(last_pc_time=0.0, _state_lock=threading.RLock(), pc_generation=0,
               get_logger=lambda: NS(warning=lambda message: None))
     msg = PointCloud2()
+    msg.header.frame_id='map';msg.header.stamp.sec=7
+    requested=[]
+    def lookup(parent,child,stamp):
+        requested.append(stamp.nanoseconds)
+        return NS(transform=NS(translation=NS(x=1.,y=2.,z=3.),rotation=NS(x=0.,y=0.,z=0.,w=1.)))
+    node.tf_buffer=NS(lookup_transform=lookup);node.global_frame='map';node.base_frame='base_footprint'
     msg.height, msg.width = 1, 100_000
     msg.point_step, msg.row_step = 12, 1_200_000
     msg.fields = [PointField(name=n, offset=i*4, datatype=7, count=1)
@@ -150,6 +155,9 @@ def test_display_cloud_conversion_is_bounded_before_python_iteration():
     ROSBridgeNode.pointcloud_callback(node, msg)
     assert len(node.pointcloud_data) <= 30_000
     assert node.pc_generation == 1
+    assert requested == [7_000_000_000]
+    assert node.pointcloud_metadata['stamp']==node.pointcloud_metadata['pose_stamp']==7.
+    assert node.pointcloud_metadata['pose']['x']==1.
 
 @pytest.mark.parametrize('ros_now,wall_now,expected', [(10.2, 101.5, True), (11.1, 101.5, False), (10.2, 103.1, False)])
 def test_pose_age_and_paused_clock_have_separate_limits(monkeypatch, ros_now, wall_now, expected):
@@ -170,3 +178,50 @@ def test_pose_age_and_paused_clock_have_separate_limits(monkeypatch, ros_now, wa
     node.tf_buffer = NS(lookup_transform=lambda *args: transform)
     monkeypatch.setattr(module.time, 'monotonic', lambda: wall_now)
     assert node._update_pose_from_tf() is expected
+
+
+def test_matching_xyz_completes_regardless_of_yaw():
+    node, operation = bridge()
+    node.telemetry['pose']['yaw'] = 2.8
+    node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)), operation, 1)
+    assert node.dispatched == [1]
+
+
+def test_wrong_z_cannot_complete_even_when_xy_matches():
+    node, operation = bridge()
+    node.telemetry['pose']['z'] += 0.4
+    node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)), operation, 1)
+    assert node.mission_manager.state == 'FAILED'
+    assert not node.dispatched
+
+
+def test_pause_does_not_complete_or_advance_when_late_success_arrives():
+    node, operation = bridge()
+    operation.update(pausing=True, cancelling=True)
+    node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)), operation, 1)
+    assert node.mission_manager.state == 'PAUSED'
+    assert node._active_navigation is operation
+    assert operation['paused'] and not node.dispatched
+
+
+def test_cancel_paused_mission_clears_operation_without_waiting_for_result():
+    node, operation = bridge()
+    operation.update(paused=True, handle=None)
+    node.cmd_vel_pub = NS(publish=lambda message: None)
+    node._stop_navigation('Cancelled')
+    assert node.mission_manager.state == 'CANCELLED'
+    assert node._active_navigation is None
+
+
+def test_action_endpoint_does_not_imply_active_or_fresh_nav2():
+    import time
+    node, _ = bridge()
+    node.nav_to_pose_client = NS(server_is_ready=lambda: True)
+    now = time.monotonic()
+    node._nav2_lifecycle = {name:{'active':False,'received':now,'requested':now,'future':None}
+                           for name in ('controller','planner','navigator','behavior','smoother')}
+    assert node.check_nav2() is False
+    for state in node._nav2_lifecycle.values():state['active'] = True
+    assert node.check_nav2() is True
+    node._nav2_lifecycle['controller']['received'] = now-5
+    assert node.check_nav2() is False

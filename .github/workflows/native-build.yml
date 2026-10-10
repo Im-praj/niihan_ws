@@ -1,0 +1,83 @@
+name: Native binary release
+on:
+  push:
+    branches: [feat/l2-3d-slam-release]
+  workflow_dispatch:
+concurrency:
+  group: binary-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            ros: humble
+          - os: ubuntu-24.04
+            ros: jazzy
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Prepare disposable runner dependencies
+        run: |
+          sudo apt-get update
+          # Hosted images can have an LLVM libunwind-dev conflicting with ROS/OpenCV.
+          # Resolve that only on this disposable CI runner, not on user laptops.
+          sudo apt-get install -y libunwind-dev
+      - uses: actions/cache@v4
+        with:
+          path: .deps
+          key: cpu-deps-${{ matrix.os }}-${{ hashFiles('scripts/build_dependencies.sh') }}
+      - name: Install, build and validate native profile
+        env:
+          NIIHAN_BUILD_JOBS: '2'
+        run: ./setup.sh --source --allow-system-removals
+      - name: Preserve dependency compilation for retries
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .deps
+          key: cpu-deps-${{ matrix.os }}-${{ hashFiles('scripts/build_dependencies.sh') }}
+      - name: Materialize relocatable CPU runtime archive
+        run: |
+          sudo apt-get install -y patchelf
+          source /opt/ros/${{ matrix.ros }}/setup.bash
+          source scripts/environment.sh
+          source install/local_setup.bash
+          python3 scripts/package_binary.py "$PWD" "$RUNNER_TEMP/binary"
+      - name: Verify installation from archive in a second directory
+        run: |
+          git clone --no-local "$PWD" "$RUNNER_TEMP/binary-consumer"
+          cd "$RUNNER_TEMP/binary-consumer"
+          source scripts/platform.sh
+          niihan_select_platform
+          source /opt/ros/${{ matrix.ros }}/setup.bash
+          python3 scripts/install_binary.py "$PWD" --archive "$RUNNER_TEMP/binary/niihan-ubuntu${{ matrix.os == 'ubuntu-22.04' && '22.04' || '24.04' }}-${{ matrix.ros }}-amd64.tar.gz"
+          ./scripts/check_binary.sh
+      - name: Publish revision-matched binary download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="binaries-$GITHUB_SHA"
+          gh release view "$tag" >/dev/null 2>&1 || { gh release create "$tag" --target "$GITHUB_SHA" --prerelease --title "CPU binaries $GITHUB_SHA" --notes "Platform-specific runtime bundles. Build/import/link validation only; visible simulation acceptance is tracked separately." || gh release view "$tag"; }
+          gh release upload "$tag" "$RUNNER_TEMP/binary/"*.tar.gz "$RUNNER_TEMP/binary/"*.sha256
+      - name: Verify public binary download through the user entry point
+        run: |
+          cd "$RUNNER_TEMP/binary-consumer"
+          ./setup.sh --no-system
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.ros }}
+          path: |
+            .setup/logs/
+            .setup/system-package-versions.txt
+            .setup/dependency-paths.txt
+          if-no-files-found: warn

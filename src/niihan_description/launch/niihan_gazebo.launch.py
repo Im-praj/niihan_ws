@@ -5,7 +5,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo, SetEnvironmentVariable, TimerAction
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
@@ -23,7 +23,7 @@ def generate_launch_description():
     xacro_file = os.path.join(pkg_description, 'urdf', 'niihan.urdf.xacro')
 
     robot_description = ParameterValue(
-        Command(['xacro ', xacro_file]), value_type=str)
+        Command(['xacro ', xacro_file, ' minimal_sensors:=', LaunchConfiguration('minimal_sensors')]), value_type=str)
 
     world_arg = DeclareLaunchArgument(
         'world',
@@ -109,7 +109,7 @@ def generate_launch_description():
 
     # Gazebo Sim launch via ros_gz_sim: world file must be first positional argument
     gz_args_sub = PythonExpression([
-        "'", world_path, " -r --seed ", LaunchConfiguration('seed'), "' if '", LaunchConfiguration('headless'), "' == 'false' else '", world_path, " -s -r --headless-rendering --seed ", LaunchConfiguration('seed'), "'"
+        "'", world_path, " -s -r --seed ", LaunchConfiguration('seed'), "' if '", LaunchConfiguration('headless'), "' == 'false' else '", world_path, " -s -r --headless-rendering --seed ", LaunchConfiguration('seed'), "'"
     ])
 
     log_world_path = LogInfo(
@@ -130,6 +130,15 @@ def generate_launch_description():
         launch_arguments={
             'gz_args': gz_args_sub,
         }.items(),
+    )
+
+    # Keep a visible GUI, but start it separately from the server. Combined
+    # Gazebo startup intermittently hung before advertising any world service.
+    gz_gui = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(PathJoinSubstitution([
+            FindPackageShare('ros_gz_sim'), 'launch', 'gz_sim.launch.py'])),
+        launch_arguments={'gz_args':'-g'}.items(),
+        condition=UnlessCondition(LaunchConfiguration('headless')),
     )
 
     robot_state_publisher_node = Node(
@@ -163,14 +172,16 @@ def generate_launch_description():
         package='ros_gz_bridge',
         executable='parameter_bridge',
         parameters=[{'use_sim_time': use_sim_time}],
+        remappings=[('/niihan/sensors/lidar/points', PythonExpression(["'/niihan/legacy/lidar/points' if '", LaunchConfiguration('external_stack'), "' == 'true' else '/niihan/sensors/lidar/points'"])), ('/odom', PythonExpression(["'/niihan/wheel/odom' if '", LaunchConfiguration('external_stack'), "' == 'true' else '/odom'"])),
+                    ('/niihan/gnss/fix', PythonExpression(["'/niihan/raw/gnss/fix' if '", LaunchConfiguration('external_stack'), "' == 'true' else '/niihan/gnss/fix'"]))],
         arguments=[
             # Clock & TF
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
-            '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
 
             # Actuation and Odometry
             '/niihan/gazebo_cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
                         '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+            '/niihan/ground_truth@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
 
             # LiDARs
@@ -188,37 +199,14 @@ def generate_launch_description():
             '/niihan/bumper/contact@ros_gz_interfaces/msg/Contacts[gz.msgs.Contacts',
 
 
-            # Rear Cluster (Unitree & Orbbec)
+            # Unitree L2
             '/niihan/sensors/unitree_lidar@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/niihan/sensors/unitree_lidar/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-            '/niihan/sensors/orbbec/color/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/orbbec/color/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/orbbec/depth/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/orbbec/depth/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            # D435i
-            '/niihan/sensors/d435i/color/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/d435i/color/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/d435i/depth/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/d435i/depth/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/d435i/imu/data@sensor_msgs/msg/Imu[gz.msgs.IMU',
 
-            # Panoramic RGB Cameras
+            # Single forward RGB camera
             '/niihan/sensors/panoramic/front/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
             '/niihan/sensors/panoramic/front/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/panoramic/right/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/panoramic/right/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/panoramic/rear/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/panoramic/rear/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/panoramic/left/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/panoramic/left/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
 
-            # PTZ & Thermal & Dock Cameras
-            '/niihan/sensors/ptz/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/ptz/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/sensors/thermal/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/sensors/thermal/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/niihan/dock/fiducial/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/niihan/dock/fiducial/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
         ],
         output='screen',
     )
@@ -226,6 +214,7 @@ def generate_launch_description():
     command_arbiter_node = Node(
         package='niihan_description',
         executable='command_arbiter',
+        condition=UnlessCondition(LaunchConfiguration('external_stack')),
         name='command_arbiter',
         output='screen',
         parameters=[{'use_sim_time': use_sim_time}],
@@ -234,12 +223,13 @@ def generate_launch_description():
     differential_drive_controller = Node(
         package='niihan_description',
         executable='differential_drive_controller',
+        condition=UnlessCondition(LaunchConfiguration('external_stack')),
         name='differential_drive_controller',
         output='screen',
         parameters=[{
             'use_sim_time': use_sim_time,
-            'wheel_radius': 0.14,
-            'track_width': 0.43,
+            'wheel_radius': 0.125,
+            'track_width': 0.525,
             'max_wheel_velocity': 10.0,
         }],
     )
@@ -400,6 +390,8 @@ def generate_launch_description():
         gz_resource_path,
         ign_resource_path,
         world_arg,
+        DeclareLaunchArgument('external_stack', default_value='false'),
+        DeclareLaunchArgument('minimal_sensors', default_value='false'),
         DeclareLaunchArgument('seed', default_value='42'),
         DeclareLaunchArgument('spawn_x', default_value='-12.0'),
         DeclareLaunchArgument('spawn_y', default_value='0.0'),
@@ -416,9 +408,14 @@ def generate_launch_description():
         log_world_path,
         log_gz_args,
         gz_sim,
+        TimerAction(period=1.0, actions=[gz_gui]),
         robot_state_publisher_node,
         spawn_entity,
         bridge_node,
+        Node(package='ros_gz_bridge', executable='parameter_bridge',
+             name='gazebo_tf_bridge', arguments=['/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'],
+             parameters=[{'use_sim_time': use_sim_time}],
+             condition=UnlessCondition(LaunchConfiguration('external_stack'))),
         command_arbiter_node,
         differential_drive_controller,
         static_tf_lidar,

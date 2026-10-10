@@ -1,6 +1,8 @@
 <?xml version="1.0"?>
 <robot name="niihan" xmlns:xacro="http://www.ros.org/wiki/xacro" xmlns:gz="http://gazebosim.org/schema">
 
+  <xacro:arg name="minimal_sensors" default="false"/>
+
   <!-- ============================================================
        NIIHAN top-level xacro: pulls together dimensional properties,
        inertia macros, chassis/wheels, mast, and all sensor suites.
@@ -46,6 +48,13 @@
       <odom_publish_frequency>50</odom_publish_frequency>
     </plugin>
 
+    <!-- Evaluation only: world pose, never bridged into the navigation TF tree. -->
+    <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+      <odom_frame>world</odom_frame><robot_base_frame>ground_truth_base</robot_base_frame>
+      <odom_topic>/niihan/ground_truth</odom_topic><tf_topic>/niihan/evaluation_tf</tf_topic>
+      <dimensions>3</dimensions><odom_publish_frequency>20</odom_publish_frequency>
+    </plugin>
+
     <!-- Joint state publisher so wheel angles show up on /joint_states -->
     <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
       <topic>/joint_states</topic>
@@ -53,8 +62,6 @@
       <joint_name>front_right_wheel_joint</joint_name>
       <joint_name>rear_left_wheel_joint</joint_name>
       <joint_name>rear_right_wheel_joint</joint_name>
-      <joint_name>ptz_pan_joint</joint_name>
-      <joint_name>ptz_tilt_joint</joint_name>
       <joint_name>front_left_suspension_joint</joint_name>
       <joint_name>front_right_suspension_joint</joint_name>
       <joint_name>rear_left_suspension_joint</joint_name>

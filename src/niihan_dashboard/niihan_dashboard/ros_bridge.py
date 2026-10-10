@@ -15,12 +15,13 @@ from rclpy.action import ActionClient
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
 from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry, OccupancyGrid
-from sensor_msgs.msg import Imu, Image, PointCloud2
-from std_msgs.msg import Bool
+from sensor_msgs.msg import JointState, Imu, Image, PointCloud2, NavSatFix
+from std_msgs.msg import Bool, String
 from nav2_msgs.action import NavigateToPose
 from nav2_msgs.msg import CostmapFilterInfo
 from action_msgs.msg import GoalStatus
-from tf2_ros import Buffer, TransformListener
+from lifecycle_msgs.srv import GetState
+from tf2_ros import Buffer, TransformListener, TransformException
 from cv_bridge import CvBridge
 
 from niihan_dashboard.safety_manager import SafetyManager
@@ -49,8 +50,8 @@ class ROSBridgeNode(Node):
         self._state_lock = threading.RLock()
         for name, value in (('global_frame', 'map'), ('robot_base_frame', 'base_footprint'),
                             ('pose_max_age', 1.0), ('pose_future_tolerance', 0.1),
-                            ('pose_freeze_timeout', 3.0),
-                            ('goal_verify_xy_tolerance', 0.25), ('goal_verify_yaw_tolerance', 0.30),
+                            ('pose_freeze_timeout', 3.0), ('require_health', False), ('slam_cloud_topic', '/vortex/point_cloud_map'),
+                            ('goal_verify_position_tolerance', 0.25),
                             ('geofence_margin', 0.45)):
             self.declare_parameter(name, value)
         self.global_frame = self.get_parameter('global_frame').value
@@ -59,8 +60,7 @@ class ROSBridgeNode(Node):
         # ROS age bounds pose accuracy; wall time separately detects a paused clock.
         self.pose_freeze_timeout = float(self.get_parameter('pose_freeze_timeout').value)
         self.pose_future_tolerance = float(self.get_parameter('pose_future_tolerance').value)
-        self.goal_verify_xy_tolerance = float(self.get_parameter('goal_verify_xy_tolerance').value)
-        self.goal_verify_yaw_tolerance = float(self.get_parameter('goal_verify_yaw_tolerance').value)
+        self.goal_verify_position_tolerance = float(self.get_parameter('goal_verify_position_tolerance').value)
         self.geofence_margin = float(self.get_parameter('geofence_margin').value)
         self.geofence_manager = GeofenceManager()
         self.safety_manager = SafetyManager(geofence_manager=self.geofence_manager)
@@ -70,7 +70,7 @@ class ROSBridgeNode(Node):
             'pose': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': 0.0},
             'velocity': {'linear_x': 0.0, 'linear_y': 0.0, 'angular_z': 0.0},
             'imu': {'ax': 0.0, 'ay': 0.0, 'az': 0.0, 'wx': 0.0, 'wy': 0.0, 'wz': 0.0},
-            'localization': {'source': 'TF', 'health': 'UNAVAILABLE', 'confidence': 0.0, 'age': None},
+            'localization': {'source': 'TF', 'health': 'UNAVAILABLE', 'confidence': None, 'age': None},
         }
         self.pose_valid = False
         self._last_tf_stamp = None
@@ -80,11 +80,16 @@ class ROSBridgeNode(Node):
         self.map_generation = 0
         self._map_info = None
         self._map_geometry = None
+        self.robot_model_json = None
+        self.robot_model_generation = 0
+        self.joint_state_json = None
+        self.joint_state_generation = 0
         self.latest_image = None
         self.image_generation = 0
         self.path_history = []
         self.pointcloud_data = []
         self.pc_generation = 0
+        self.pointcloud_metadata = None
         self.last_pc_time = 0.0
         self._active_navigation = None
         self._next_request_id = 0
@@ -98,24 +103,95 @@ class ROSBridgeNode(Node):
         self.keepout_pub = self.create_publisher(OccupancyGrid, '/niihan/geofence_mask', latched)
         self.filter_info_pub = self.create_publisher(CostmapFilterInfo, '/niihan/geofence_filter_info', latched)
         self.create_subscription(Odometry, '/odom', self.odom_callback, qos_profile_sensor_data)
+        self.telemetry['gnss'] = {'available': False, 'quality': 'unknown'}
+        self.telemetry['hardware_health'] = {'ready': False, 'faults': ['waiting_for_supervisor']}
+        self.create_subscription(NavSatFix, '/niihan/gnss/fix', self.gnss_callback, qos_profile_sensor_data)
+        self.create_subscription(String, '/niihan/gnss/quality', self.gnss_quality_callback, 10)
+        self.create_subscription(String, '/niihan/health', self.hardware_health_callback, 10)
+        self._health_received = 0.0
+        self.telemetry['slam'] = {'backend': 'unknown'}
+        self.create_subscription(String, '/niihan/slam/status', self.slam_status_callback, 10)
         self.create_subscription(Imu, '/niihan/imu/data', self.imu_callback, qos_profile_sensor_data)
         self.create_subscription(OccupancyGrid, '/map', self.map_callback, latched)
-        self.create_subscription(PointCloud2, '/vortex/point_cloud_map', self.pointcloud_callback, qos_profile_sensor_data)
+        self.create_subscription(PointCloud2, self.get_parameter('slam_cloud_topic').value, self.pointcloud_callback, qos_profile_sensor_data)
+        self.create_subscription(JointState, '/joint_states', self.joint_state_callback, qos_profile_sensor_data)
+        self.create_subscription(String, '/robot_description', self.robot_description_callback, latched)
         self.create_subscription(Image, '/niihan/sensors/panoramic/front/image_raw', self.image_callback, qos_profile_sensor_data)
         self.nav_to_pose_client = ActionClient(self, NavigateToPose, '/navigate_to_pose')
+        self._nav2_lifecycle = {name:{'client':self.create_client(GetState,'/'+name+'/get_state'), 'active':False, 'received':0., 'requested':0., 'future':None}
+                                for name in ('controller_server','planner_server','bt_navigator','behavior_server','velocity_smoother')}
         # A paused /clock must not freeze the manual watchdog or localization stop.
         self._steady_clock = Clock(clock_type=ClockType.STEADY_TIME)
         self.create_timer(0.05, self.safety_loop, clock=self._steady_clock)
         self.create_timer(1.0, self.update_path_history, clock=self._steady_clock)
         self.check_nav2()
 
+    def joint_state_callback(self, msg):
+        positions = {name:position for name,position in zip(msg.name,msg.position) if math.isfinite(position)}
+        with self._state_lock:
+            self.joint_state_json = json.dumps({'type':'joint_states','positions':positions})
+            self.joint_state_generation += 1
+
+    def robot_description_callback(self, msg):
+        from niihan_dashboard.robot_model import visual_model
+        try:
+            model_json = json.dumps(visual_model(msg.data))
+            with self._state_lock:
+                self.robot_model_json = model_json
+                self.robot_model_generation += 1
+        except (ValueError, TypeError) as exc:
+            self.get_logger().error(f'Cannot display robot model: {exc}')
+
+    @synchronized
     def check_nav2(self):
-        self.nav2_ready = self.nav_to_pose_client.server_is_ready()
+        now = time.monotonic()
+        for state in self._nav2_lifecycle.values():
+            if now-state['requested'] < 1.0:
+                continue
+            pending = state['future']
+            if pending is not None and not pending.done():
+                if now-state['requested'] <= 2.0:
+                    continue
+                pending.cancel()
+            state['requested'] = now
+            if state['client'].service_is_ready():
+                future = state['client'].call_async(GetState.Request())
+                state['future'] = future
+                future.add_done_callback(lambda f, s=state:self._nav2_state_result(f,s))
+            else:
+                state['active'] = False
+        self.nav2_ready = self.nav_to_pose_client.server_is_ready() and all(
+            state['active'] and now-state['received'] < 3.0 for state in self._nav2_lifecycle.values())
         return self.nav2_ready
+
+    @synchronized
+    def _nav2_state_result(self, future, state):
+        if state['future'] is not future:
+            return
+        try:
+            response = future.result()
+            state['active'] = response is not None and response.current_state.id == 3
+        except Exception:
+            state['active'] = False
+        state['received'] = time.monotonic()
+        state['future'] = None
 
     def pointcloud_callback(self, msg):
         now = time.monotonic()
         if now - self.last_pc_time < 0.2:
+            return
+        # Pair the rendered cloud with TF at its own timestamp, never latest TF.
+        try:
+            transform = self.tf_buffer.lookup_transform(self.global_frame, self.base_frame,
+                                                       rclpy.time.Time.from_msg(msg.header.stamp))
+            if msg.header.frame_id != self.global_frame:
+                self.get_logger().warning('Display cloud must be in '+self.global_frame)
+                return
+            t = transform.transform.translation; q = transform.transform.rotation
+            roll,pitch,yaw = euler_from_quaternion(q.x,q.y,q.z,q.w)
+            pose = {'x':t.x,'y':t.y,'z':t.z,'yaw':yaw,'roll':roll,'pitch':pitch}
+            if not all(math.isfinite(v) for v in pose.values()):return
+        except TransformException:
             return
         self.last_pc_time = now
         import sensor_msgs_py.point_cloud2 as pc2
@@ -132,6 +208,7 @@ class ROSBridgeNode(Node):
             return
         with self._state_lock:
             self.pointcloud_data = points
+            self.pointcloud_metadata = {'frame_id':msg.header.frame_id,'stamp':msg.header.stamp.sec+msg.header.stamp.nanosec/1e9,'pose_stamp':msg.header.stamp.sec+msg.header.stamp.nanosec/1e9,'pose':pose}
             self.pc_generation += 1
 
     @synchronized
@@ -145,7 +222,7 @@ class ROSBridgeNode(Node):
         steady_now = time.monotonic()
         self.pose_valid = False
         localization = self.telemetry['localization']
-        localization.update(health='UNAVAILABLE', confidence=0.0, age=None)
+        localization.update(health='UNAVAILABLE', confidence=None, age=None)
         clock_reset = self._last_ros_time is not None and now < self._last_ros_time - self.pose_future_tolerance
         self._last_ros_time = now
         try:
@@ -165,13 +242,40 @@ class ROSBridgeNode(Node):
             values = (translation.x, translation.y, translation.z, q.x, q.y, q.z, q.w)
             if not all(math.isfinite(value) for value in values) or sum(v * v for v in values[3:]) < 1e-12:
                 return False
-            _, _, yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)
-            self.telemetry['pose'].update(x=translation.x, y=translation.y, z=translation.z, yaw=yaw)
-            localization.update(health='OK', confidence=1.0)
+            roll, pitch, yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)
+            self.telemetry['pose'].update(x=translation.x, y=translation.y, z=translation.z, yaw=yaw,roll=roll,pitch=pitch)
+            localization.update(health='OK', confidence=None)
             self.pose_valid = True
             return True
         except Exception:
             return False
+
+    @synchronized
+    def gnss_callback(self, msg):
+        valid = msg.status.status >= 0 and all(math.isfinite(value) for value in (msg.latitude, msg.longitude, msg.altitude))
+        self.telemetry['gnss'].update(available=valid, latitude=msg.latitude if valid else None,
+                                      longitude=msg.longitude if valid else None, altitude=msg.altitude if valid else None,
+                                      covariance=list(msg.position_covariance), stamp=msg.header.stamp.sec+msg.header.stamp.nanosec/1e9)
+
+    @synchronized
+    def gnss_quality_callback(self, msg):
+        self.telemetry['gnss']['quality'] = msg.data
+
+    @synchronized
+    def slam_status_callback(self, msg):
+        try:
+            self.telemetry['slam'] = json.loads(msg.data)
+        except (ValueError, TypeError):
+            pass
+
+    def hardware_health_callback(self, msg):
+        self._health_received = time.monotonic()
+        try:
+            status = json.loads(msg.data)
+        except (ValueError, TypeError):
+            return
+        if isinstance(status, dict):
+            self.telemetry['hardware_health'] = status
 
     @synchronized
     def imu_callback(self, msg):
@@ -246,7 +350,8 @@ class ROSBridgeNode(Node):
     def _stop_navigation(self, message, failed=False):
         operation = self._active_navigation
         if operation is not None:
-            operation['cancelling'] = True
+            was_paused = operation.get('paused', False)
+            operation.update(cancelling=True, pausing=False, paused=False)
             operation['failure'] = failed
             if operation['kind'] == 'mission':
                 self.mission_manager.cancel_mission()
@@ -262,6 +367,8 @@ class ROSBridgeNode(Node):
                 except Exception as exc:
                     self.get_logger().error(f'Could not send action cancellation: {exc}')
             self.navigation.update(state='FAILED' if failed else 'CANCELLED', message=message)
+            if was_paused:
+                self._finish_navigation(operation, 'FAILED' if failed else 'CANCELLED', message)
         self.cmd_vel_pub.publish(Twist())
 
     def _trigger_estop(self, message):
@@ -301,6 +408,9 @@ class ROSBridgeNode(Node):
             return self._response(action, False, str(exc))
 
     def _process_command(self, action, data):
+        if action in ('joystick', 'nav_goal', 'start_mission', 'resume_mission') and self.get_parameter('require_health').value:
+            if time.monotonic() - self._health_received > 2.0 or not self.telemetry.get('hardware_health', {}).get('ready', False):
+                return self._response(action, False, 'Motion inhibited: required sensor/drive health is unavailable.')
         if action == 'estop':
             self._trigger_estop('E-stop activated by operator.')
         elif action == 'clear_estop':
@@ -337,16 +447,16 @@ class ROSBridgeNode(Node):
             self.cmd_vel_pub.publish(msg)
             return None
         elif action == 'nav_goal':
-            coords = self.mission_manager._coordinates(data.get('x'), data.get('y'), yaw=data.get('yaw', 0.0))
-            success, message = self.send_nav_goal(coords['x'], coords['y'], coords['yaw'])
+            coords = self.mission_manager._coordinates(data.get('x'), data.get('y'), data.get('z', self.telemetry['pose']['z']), yaw=None)
+            success, message = self.send_nav_goal(coords['x'], coords['y'], None, coords['z'])
             return self._response(action, success, message)
         elif action in ('add_waypoint', 'update_waypoint', 'delete_waypoint', 'reorder_waypoint', 'clear_mission', 'write_mission'):
             if self._active_navigation is not None:
                 raise ValueError('Cancel navigation and wait for cancellation before editing a mission.')
             if action == 'add_waypoint':
-                self.mission_manager.add_waypoint(data.get('x'), data.get('y'), data.get('z', 0.0), data.get('yaw'))
+                self.mission_manager.add_waypoint(data.get('x'), data.get('y'), data.get('z', self.telemetry['pose']['z']), None)
             elif action == 'update_waypoint':
-                self.mission_manager.update_waypoint(data.get('id'), data.get('x'), data.get('y'), data.get('z', 0.0), data.get('yaw'))
+                self.mission_manager.update_waypoint(data.get('id'), data.get('x'), data.get('y'), data.get('z', self.telemetry['pose']['z']), None)
             elif action == 'delete_waypoint':
                 self.mission_manager.delete_waypoint(data.get('id'))
             elif action == 'reorder_waypoint':
@@ -362,6 +472,10 @@ class ROSBridgeNode(Node):
                 return self._response(action, *self.mission_manager.write_mission())
         elif action == 'start_mission':
             return self._response(action, *self.send_waypoints())
+        elif action == 'pause_mission':
+            return self._response(action, *self.pause_mission())
+        elif action == 'resume_mission':
+            return self._response(action, *self.resume_mission())
         elif action == 'cancel_mission':
             self._stop_navigation('Navigation cancelled by operator.')
             if self._active_navigation is None:
@@ -382,10 +496,10 @@ class ROSBridgeNode(Node):
             return self._response(action, False, 'Unknown command.')
         return self._response(action, True, action.replace('_', ' ').capitalize() + ' applied.')
 
-    def _can_start_navigation(self, targets):
+    def _can_start_navigation(self, targets, resuming=False):
         if not self.safety_manager.validate_auto_command():
             return False, 'Navigation requires AUTO mode and a cleared e-stop.'
-        if self._active_navigation is not None:
+        if self._active_navigation is not None and not resuming:
             return False, 'Navigation is already active or cancellation is pending.'
         if not self.check_nav2():
             return False, 'Nav2 NavigateToPose action unavailable.'
@@ -396,8 +510,8 @@ class ROSBridgeNode(Node):
         return self.geofence_manager.is_valid_mission(targets, self.telemetry['pose'], self.geofence_margin)
 
     @synchronized
-    def send_nav_goal(self, x, y, yaw):
-        target = self.mission_manager._coordinates(x, y, yaw=yaw)
+    def send_nav_goal(self, x, y, yaw=None, z=None):
+        target = self.mission_manager._coordinates(x, y, self.telemetry['pose']['z'] if z is None else z, yaw=None)
         success, message = self._can_start_navigation([target])
         if not success:
             return success, message
@@ -417,6 +531,37 @@ class ROSBridgeNode(Node):
         self._active_navigation = operation
         return self._dispatch_target(operation)
 
+    @synchronized
+    def pause_mission(self):
+        operation = self._active_navigation
+        if operation is None or operation['kind'] != 'mission' or operation.get('cancelling') or operation.get('paused'):
+            return False, 'A running mission is required to pause.'
+        operation.update(pausing=True, cancelling=True, failure=False)
+        self.mission_manager.state = 'PAUSING'
+        self.navigation.update(state='PAUSING', message='Waiting for Nav2 to stop.')
+        handle = operation.get('handle')
+        if handle is not None and not operation.get('cancel_sent'):
+            operation['cancel_sent'] = True
+            try:
+                handle.cancel_goal_async()
+            except Exception as exc:
+                self._trigger_estop(f'Mission pause cancellation failed: {exc}')
+                return False, 'Pause failed; emergency stop asserted.'
+        self.cmd_vel_pub.publish(Twist())
+        return True, 'Mission pause requested.'
+
+    @synchronized
+    def resume_mission(self):
+        operation = self._active_navigation
+        if operation is None or not operation.get('paused'):
+            return False, 'Wait for a paused mission before resuming.'
+        valid, message = self._can_start_navigation(operation['targets'][operation['index']:], resuming=True)
+        if not valid:return False, message
+        operation.update(paused=False, pausing=False, cancelling=False)
+        self.mission_manager.state = 'RUNNING'
+        self.mission_manager.message = f"Resuming waypoint {operation['index'] + 1}."
+        return self._dispatch_target(operation)
+
     def _dispatch_target(self, operation):
         target = dict(operation['targets'][operation['index']])
         if target['yaw'] is None:
@@ -429,6 +574,7 @@ class ROSBridgeNode(Node):
         # pinning long missions to a historical TF sample that leaves the cache.
         goal.pose.pose.position.x = target['x']
         goal.pose.pose.position.y = target['y']
+        goal.pose.pose.position.z = target['z']
         goal.pose.pose.orientation.z = math.sin(target['yaw'] / 2.0)
         goal.pose.pose.orientation.w = math.cos(target['yaw'] / 2.0)
         self._next_request_id += 1
@@ -481,6 +627,12 @@ class ROSBridgeNode(Node):
             self._trigger_estop(f'Navigation result unavailable: {exc}')
             self._finish_navigation(operation, 'FAILED', f'Navigation result unavailable: {exc}')
             return
+        if operation.get('pausing'):
+            operation.update(paused=True, pausing=False, cancelling=False, handle=None, cancel_sent=False)
+            self.mission_manager.state = 'PAUSED'
+            self.mission_manager.message = 'Mission paused; resume continues the current waypoint.'
+            self.navigation.update(state='PAUSED', message=self.mission_manager.message)
+            return
         if operation['cancelling']:
             state = 'FAILED' if operation.get('failure') else 'CANCELLED'
             self._finish_navigation(operation, state, self.navigation['message'])
@@ -495,11 +647,11 @@ class ROSBridgeNode(Node):
             self._finish_navigation(operation, 'FAILED', 'Arrival cannot be confirmed: localization is stale.')
             return
         pose = self.telemetry['pose']
-        distance = math.hypot(pose['x'] - target['x'], pose['y'] - target['y'])
-        yaw_error = abs(math.atan2(math.sin(pose['yaw'] - target['yaw']), math.cos(pose['yaw'] - target['yaw'])))
-        if distance > self.goal_verify_xy_tolerance or yaw_error > self.goal_verify_yaw_tolerance:
+        distance = math.dist([pose[axis] for axis in ('x', 'y', 'z')],
+                             [target[axis] for axis in ('x', 'y', 'z')])
+        if distance > self.goal_verify_position_tolerance:
             self._finish_navigation(operation, 'FAILED',
-                                    f'Nav2 reported success away from target ({distance:.2f} m, {yaw_error:.2f} rad); mission stopped.')
+                                    f'Nav2 reported success away from target ({distance:.2f} m XYZ error); mission stopped.')
             return
         if operation['kind'] == 'mission':
             index = operation['index']
@@ -533,6 +685,7 @@ class ROSBridgeNode(Node):
                            'velocity': self.telemetry['velocity'], 'mode': self.safety_manager.mode,
                            'estop': self.safety_manager.estop_active, 'mission': self.mission_manager.get_status(),
                            'geofence': self.geofence_manager.get_status(), 'localization': self.telemetry['localization'],
+                           'gnss': self.telemetry['gnss'], 'hardware_health': self.telemetry['hardware_health'], 'slam': self.telemetry.get('slam', {}),
                            'path_history': self.path_history, 'nav2_ready': self.nav2_ready, 'navigation': self.navigation})
 
     @synchronized
@@ -541,4 +694,4 @@ class ROSBridgeNode(Node):
 
     @synchronized
     def get_pointcloud_json(self):
-        return json.dumps({'type': 'pointcloud', 'data': self.pointcloud_data})
+        return json.dumps({'type': 'pointcloud', 'data': self.pointcloud_data, **(self.pointcloud_metadata or {})})

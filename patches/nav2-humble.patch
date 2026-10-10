@@ -1,0 +1,63 @@
+diff --git a/nav2_dwb_controller/nav_2d_utils/src/tf_help.cpp b/nav2_dwb_controller/nav_2d_utils/src/tf_help.cpp
+index ac4b7a6a..c9e25b14 100644
+--- a/nav2_dwb_controller/nav_2d_utils/src/tf_help.cpp
++++ b/nav2_dwb_controller/nav_2d_utils/src/tf_help.cpp
+@@ -79,7 +79,7 @@ bool transformPose(
+         transform.header.stamp.sec,
+         transform.header.stamp.nanosec
+       );
+-      return false;
++      throw tf2::ExtrapolationException("Transform data too old");
+     } else {
+       tf2::doTransform(in_pose, out_pose, transform);
+       return true;
+@@ -90,7 +90,7 @@ bool transformPose(
+       "Exception in transformPose: %s",
+       ex.what()
+     );
+-    return false;
++    throw tf2::TransformException(ex.what());
+   }
+   return false;
+ }
+diff --git a/nav2_regulated_pure_pursuit_controller/src/regulated_pure_pursuit_controller.cpp b/nav2_regulated_pure_pursuit_controller/src/regulated_pure_pursuit_controller.cpp
+index 47d8e14b..334eb59d 100644
+--- a/nav2_regulated_pure_pursuit_controller/src/regulated_pure_pursuit_controller.cpp
++++ b/nav2_regulated_pure_pursuit_controller/src/regulated_pure_pursuit_controller.cpp
+@@ -738,7 +738,9 @@ nav_msgs::msg::Path RegulatedPurePursuitController::transformGlobalPlan(
+       stamped_pose.header.frame_id = global_plan_.header.frame_id;
+       stamped_pose.header.stamp = robot_pose.header.stamp;
+       stamped_pose.pose = global_plan_pose.pose;
+-      transformPose(costmap_ros_->getBaseFrameID(), stamped_pose, transformed_pose);
++      if (!transformPose(costmap_ros_->getBaseFrameID(), stamped_pose, transformed_pose)) {
++        throw nav2_core::PlannerException("Cannot transform global path into navigation frame");
++      }
+       transformed_pose.pose.position.z = 0.0;
+       return transformed_pose;
+     };
+diff --git a/nav2_route/include/nav2_route/node_spatial_tree.hpp b/nav2_route/include/nav2_route/node_spatial_tree.hpp
+index ac5347bc..cab35484 100644
+--- a/nav2_route/include/nav2_route/node_spatial_tree.hpp
++++ b/nav2_route/include/nav2_route/node_spatial_tree.hpp
+@@ -55,7 +55,7 @@ struct GraphAdaptor
+ };
+ 
+ typedef nanoflann::KDTreeSingleIndexAdaptor<
+-    nanoflann::L2_Simple_Adaptor<double, GraphAdaptor>, GraphAdaptor, DIMENSION> kd_tree_t;
++    nanoflann::L2_Simple_Adaptor<double, GraphAdaptor>, GraphAdaptor, DIMENSION, size_t> kd_tree_t;
+ 
+ /**
+  * @class nav2_route::NodeSpatialTree
+diff --git a/nav2_route/src/node_spatial_tree.cpp b/nav2_route/src/node_spatial_tree.cpp
+index 19f37dda..dd0bc46a 100644
+--- a/nav2_route/src/node_spatial_tree.cpp
++++ b/nav2_route/src/node_spatial_tree.cpp
+@@ -61,7 +61,7 @@ bool NodeSpatialTree::findNearestGraphNodesToPose(
+   const geometry_msgs::msg::PoseStamped & pose_in, std::vector<unsigned int> & node_ids)
+ {
+   size_t num_results = static_cast<size_t>(num_of_nearest_nodes_);
+-  std::vector<unsigned int> ret_index(num_results);
++  std::vector<size_t> ret_index(num_results);
+   std::vector<double> out_dist_sqr(num_results);
+   const double query_pt[2] = {pose_in.pose.position.x, pose_in.pose.position.y};
+   num_results = kdtree_->knnSearch(&query_pt[0], num_results, &ret_index[0], &out_dist_sqr[0]);
