@@ -81,3 +81,31 @@ jobs:
             .setup/system-package-versions.txt
             .setup/dependency-paths.txt
           if-no-files-found: warn
+
+  binary-consumer:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install public binary on a separate fresh runner
+        # This runner has no producer workspace, private GTSAM installation,
+        # initialized submodules or compiled application packages.
+        run: ./setup.sh --allow-system-removals
+      - name: Check the binary-only consumer readiness
+        run: |
+          ./setup.sh --check
+          test ! -d build
+          test ! -d .deps
+          git submodule status | awk '{if (substr($0,1,1)!="-") exit 1}'
+      - name: Upload consumer installation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: consumer-${{ matrix.os }}
+          path: .setup/logs/
+          if-no-files-found: warn
