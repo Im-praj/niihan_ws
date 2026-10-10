@@ -12,13 +12,18 @@ if [[ "${NIIHAN_RUN_CLEAN_ENV:-}" != 1 ]]; then
     bash --noprofile --norc "$root/run.sh" "$@"
 fi
 [[ -n "${DISPLAY:-}" ]] || { echo 'No DISPLAY. Run from a graphical desktop session.' >&2;exit 1; }
-[[ -f "$root/install/local_setup.bash" && -f /opt/ros/humble/setup.bash ]] || {
+[[ -f "$root/install/local_setup.bash" ]] || {
   echo 'Workspace not built. Run ./setup.sh first.' >&2;exit 1;
 }
 for arg in "$@"; do
   case "$arg" in headless:=*|rviz:=*) echo 'run.sh keeps Gazebo and RViz visible; remove that override.';exit 2;; esac
 done
-source /opt/ros/humble/setup.bash
+source "$root/scripts/platform.sh"
+niihan_select_platform
+niihan_source_ros
+if [[ -f "$root/.setup/build-profile" ]] && [[ "$(cat "$root/.setup/build-profile")" != "$NIIHAN_ROS_DISTRO" ]]; then
+  echo 'Build profile differs from the native ROS version. Rerun ./setup.sh --clean.' >&2;exit 1
+fi
 source "$root/scripts/environment.sh"
 source "$root/install/local_setup.bash"
 python3 - <<'PY'

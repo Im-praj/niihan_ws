@@ -40,3 +40,5 @@ src/niihan_description/models/construction_site_chunk5/
 # Onboarding dependencies, setup logs and preserved old builds
 .deps/
 .setup/
+
+.binary/

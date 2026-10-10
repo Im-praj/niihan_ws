@@ -27,7 +27,7 @@ def stack(context):
         node('niihan_bringup','sensor_adapter','sensor_adapter',[{'gravity_aligned_height':True,'scan_frame':'base_nav','relay_camera':False}]),
         node('niihan_bringup','health_supervisor','health_supervisor',[{'sensor_timeout':2.0}]),
         node('niihan_bringup','motion_gateway','motion_gateway',[{'drive_enabled':True}]),
-        include(os.path.join(desc,'launch','niihan_navigation.launch.py'),{'use_sim_time':'true','params_file':os.path.join(share,'config','nav2_3d.yaml'),'bt_xml':os.path.join(share,'config','navigate_to_pose_position.xml')}),
+        include(os.path.join(desc,'launch','niihan_navigation.launch.py'),{'use_sim_time':'true','params_file':os.path.join(share,'config','nav2_3d_jazzy.yaml' if os.environ.get('ROS_DISTRO')=='jazzy' else 'nav2_3d.yaml'),'bt_xml':os.path.join(share,'config','navigate_to_pose_position_jazzy.xml' if os.environ.get('ROS_DISTRO')=='jazzy' else 'navigate_to_pose_position.xml')}),
         node('rviz2','rviz2','rviz2',arguments=['-d',os.path.join(share,'config','slam.rviz')],condition=IfCondition(LaunchConfiguration('rviz'))),
         node('niihan_dashboard','dashboard_node','niihan_dashboard_node',[{'require_health':True,'slam_cloud_topic':'/niihan/slam/map_cloud'}])]
     # Only the common adapter publishes the navigation scan in this profile.

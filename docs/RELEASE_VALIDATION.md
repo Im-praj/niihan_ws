@@ -35,3 +35,7 @@ A separate recursive clone from public GitHub/submodules built successfully: 3 g
 Logs, trajectories, maps, desktop WebM recordings and dashboard pictures are retained under `/home/praj/evidence/NIihan_3D_20261009_144316`; failures are preserved. The evidence root is owner-only. Source and README are published on `feat/l2-3d-slam-release`, not the default main branch.
 
 The reproducible commands, dependency pins and hardware limits are in the repository README. This report does not declare all checklist milestones complete.
+
+## Binary and native platform expansion
+
+The default installer now requests a platform/revision-matched CPU archive; compilation is explicit with `--source`. Native targets are 22.04/Humble and 24.04/Jazzy. Jazzy uses native apt Nav2/geometry2 and separate navigation/BT configuration. Two-platform CI must complete packaging and second-directory installation before publishing each download. Existing three-run accuracy evidence applies only to the recorded Humble baseline. Jazzy build and visible simulation acceptance remain pending until corresponding results are recorded.

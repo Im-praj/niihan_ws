@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -eo pipefail
 workspace_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-source /opt/ros/humble/setup.bash
+source "$workspace_root/scripts/platform.sh"
+niihan_select_platform
+niihan_source_ros
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/environment.sh"
 source "$workspace_root/install/local_setup.bash"
 set -u

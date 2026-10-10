@@ -15,7 +15,14 @@ ROS 2 Humble / Gazebo Harmonic simulation with GLIM CPU LiDAR-inertial SLAM, a p
 
 ## Supported environment
 
-Ubuntu 22.04 amd64, ROS 2 Humble, Gazebo Sim 8 (Harmonic), Python 3.10, a working graphical display and OpenGL rendering. Windows/macOS/native ROS distributions are not validated. A fresh source clone can be tested on this host; that does not certify every GPU or clean operating-system installation.
+Native targets (amd64):
+
+| Ubuntu | ROS | Gazebo | Verification |
+|---|---|---|---|
+| 22.04 Jammy | Humble | Harmonic, non-default bridge | Local build and repeated simulation tested |
+| 24.04 Noble | Jazzy | Harmonic, native `ros-jazzy-ros-gz` | Build/GUI/route acceptance pending |
+
+Setup selects the native pairing automatically. This does not support Humble on 24.04 or Jazzy on 22.04 natively; use a matching OS container/VM for those combinations. A working graphical display and OpenGL rendering are required. Windows/macOS/native ROS distributions are not validated. A fresh source clone can be tested on this host; that does not certify every GPU or clean operating-system installation.
 
 Install ROS Humble and Gazebo Harmonic from their official instructions. Use the Harmonic-compatible `ros-humble-ros-gzharmonic` bridge, not a mismatched default Gazebo bridge. Install Nav2 (`ros-humble-navigation2`, `ros-humble-nav2-bringup`), Xacro, robot state publisher, sensor_msgs_py, cv_bridge, image_transport, rosbag2 and colcon/rosdep. Python packages: numpy, scipy, PyYAML, aiohttp, websockets, pytest, pyserial; Node.js and GCC are used by validation.
 
@@ -23,7 +30,7 @@ GLIM source prerequisites: GTSAM 4.3a0 (`3ad4b4c3cb28394c9597f48fa02dad361c8450e
 
 ## Quick setup and visible launch
 
-On Ubuntu 22.04 amd64 with a graphical desktop:
+On Ubuntu 22.04 or 24.04 amd64 with a graphical desktop:
 
 ```bash
 git clone --recurse-submodules --branch feat/l2-3d-slam-release https://github.com/Im-praj/niihan_ws.git
@@ -32,7 +39,7 @@ cd niihan_ws
 ./run.sh
 ```
 
-If already cloned, use `git pull --ff-only origin feat/l2-3d-slam-release` instead of cloning again. Setup uses sudo for apt packages and official ROS/Gazebo repository configuration when needed. It compiles pinned CPU GTSAM/gtsam_points into `.deps/install`, builds the supported package set and runs validation. Compilation can take considerable time; leave the terminal open. It does not install graphics drivers. Logs and failure details are saved in `.setup/logs`. Setup stops on failure; do not run `run.sh` until it succeeds.
+If already cloned, use `git pull --ff-only origin feat/l2-3d-slam-release` instead of cloning again. Default setup downloads the revision-matched CPU binary archive from GitHub Releases after installing runtime prerequisites. `./setup.sh --source` explicitly compiles instead. Setup uses sudo for apt packages and official ROS/Gazebo repository configuration when needed. The source fallback compiles pinned CPU GTSAM/gtsam_points into `.deps/install` (Humble) or `.deps/jazzy/install` (Jazzy), builds the selected package set and runs validation. Compilation can take considerable time; leave the terminal open. It does not install graphics drivers. Logs and failure details are saved in `.setup/logs`. Setup stops on failure; do not run `run.sh` until it succeeds.
 
 `./setup.sh --check` checks prerequisites/package lookup without installing. `--no-system` skips apt for a prepared host. `--use-system-deps` reuses existing compatible GTSAM/gtsam_points for an already commissioned development machine. `--clean` preserves build/install/log in `.setup/backups` before rebuilding; use this for incomplete old overlays. The scripts start with a clean ROS environment and isolate pytest from unrelated automatic plugin loading. They never delete source or modify system Python with pip.
 
@@ -50,7 +57,7 @@ source install/setup.bash
 ./scripts/validate.sh
 ```
 
-Submodule commits are pinned by Git and `.gitmodules` supplies public URLs. The supported build first compiles pinned geometry2 0.25.24 (TF core and ROS bindings), then the pinned Nav2 checkout with `patches/nav2-humble.patch`, including rejected-transform handling. Installed Nav2 supplies prerequisites; runtime uses the built overlay. KISS-ICP remains optional. GLIM editor patches are preserved but not needed with its editor disabled. Do not build all optional packages indiscriminately.
+Submodule commits are pinned by Git and `.gitmodules` supplies public URLs. The Humble build first compiles pinned geometry2 0.25.24 (TF core and ROS bindings), then the pinned Nav2 checkout with `patches/nav2-humble.patch`, including rejected-transform handling. Installed Nav2 supplies prerequisites; runtime uses the built overlay. KISS-ICP remains optional. GLIM editor patches are preserved but not needed with its editor disabled. Do not build all optional packages indiscriminately.
 
 ## Visible simulation
 
@@ -148,3 +155,15 @@ For an older checkout, use `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 ./scripts/validate.
 If rosdep reports `Cannot locate rosdep definition for [ament_python]`, update the release branch. The manifests use `python3-setuptools` as the build dependency and retain `ament_python` only as the exported build type. Setup resolves the supported package dependency closure, excluding upstream system tests requiring Gazebo Classic. Skipping distributions other than Humble during `rosdep update --rosdistro humble` is normal.
 
 A `nav2_route` compilation error at `knnSearch` involving `AccessorType*` is a nanoflann index-type mismatch between library versions. The compatibility patch explicitly selects `size_t` for both the KD-tree and result buffer. Update the release branch and rerun setup; the patch helper upgrades the previous patch per file without discarding local edits.
+
+## Jazzy profile and binary distribution
+
+Ubuntu 24.04 uses native ROS Jazzy Nav2 and geometry2 apt packages. It does not compile or patch the Humble copies in `src/navigation2`/`src/geometry2`. The GLIM and application builds use the same pinned GLIM source, with a separate dependency prefix; compiled Humble libraries are never reused as Jazzy binaries. The SLAM launch selects `nav2_3d_jazzy.yaml` and a BehaviorTree.CPP 4 XML. Jazzy plugin names, progress checkers and behavior costmap names are explicit; command outputs remain unstamped Twist for the existing arbiter.
+
+Do not migrate an existing install directory between ROS versions. Setup records `.setup/build-profile` and rejects a mismatched profile; use a separate clone or `--clean` to preserve the old build. Apt package versions are recorded in `.setup/system-package-versions.txt`. Native Jazzy Nav2/TF packages are distribution binaries, not the custom Humble build. The CI release workflow builds platform-specific CPU archives with GLIM, its private shared libraries, the application and (on Humble) patched Nav2/TF. Archives are published only after second-directory install/import/link checks pass. Missing release assets fail clearly; they do not silently trigger compilation. The CI matrix builds both native targets, checks archive installation and uploads logs; build success alone does not replace visible simulation evidence. Jazzy has not been validated on this local Humble host and must not yet be described as release-certified.
+
+## Binary-first end-user installation
+
+`./setup.sh` installs apt prerequisites and downloads `niihan-ubuntu22.04-humble-amd64.tar.gz` or `niihan-ubuntu24.04-jazzy-amd64.tar.gz` from the release tagged `binaries-<full source commit>`. It verifies SHA-256 plus source commit, OS, ROS, architecture and Python metadata before installing. The old install is preserved under `.setup/backups`; runtime shared libraries are isolated under `.binary/deps/lib`. `./run.sh` remains the visible launch entry point. No C++ compilation occurs on this default path.
+
+For developers and CI, use `./setup.sh --source`; optional `--no-system --use-system-deps` applies to a prepared development machine. If this commit's binary release is still building or failed, setup reports that instead of pretending a binary is available. See GitHub Actions and Releases. A successful package installation check does not certify simulation, physical L2 operation or every graphics driver. SHA-256 detects corruption; trust still comes from this repository's release publication.
