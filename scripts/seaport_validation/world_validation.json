@@ -1,0 +1,37 @@
+[
+  {
+    "world": "seaport_01.sdf",
+    "exit_code": 0,
+    "output": "Valid.\n"
+  },
+  {
+    "world": "seaport_02.sdf",
+    "exit_code": 0,
+    "output": "Valid.\n"
+  },
+  {
+    "world": "seaport_03.sdf",
+    "exit_code": 0,
+    "output": "Valid.\n"
+  },
+  {
+    "world": "seaport_04.sdf",
+    "exit_code": 0,
+    "output": "Valid.\n"
+  },
+  {
+    "world": "seaport_05.sdf",
+    "exit_code": 0,
+    "output": "Valid.\n"
+  },
+  {
+    "world": "seaport_06.sdf",
+    "exit_code": 0,
+    "output": "Valid.\n"
+  },
+  {
+    "world": "seaport_07.sdf",
+    "exit_code": 0,
+    "output": "Valid.\n"
+  }
+]

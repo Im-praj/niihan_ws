@@ -2,6 +2,9 @@
 <robot name="niihan" xmlns:xacro="http://www.ros.org/wiki/xacro" xmlns:gz="http://gazebosim.org/schema">
 
   <xacro:arg name="minimal_sensors" default="false"/>
+  <xacro:arg name="gnss_mount_x" default="0.0"/>
+  <xacro:arg name="gnss_mount_y" default="0.0"/>
+  <xacro:arg name="gnss_mount_z" default="0.06"/>
 
   <!-- ============================================================
        NIIHAN top-level xacro: pulls together dimensional properties,

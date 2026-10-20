@@ -1,0 +1,996 @@
+{
+  "worlds_completed": 7,
+  "worlds_passed": 7,
+  "waypoints_passed": 21,
+  "maps_3d_saved": 7,
+  "rows": [
+    {
+      "world": 1,
+      "pass": true,
+      "waypoints_reached": 3,
+      "baseline_mean_m": 0.25849325750882995,
+      "baseline_max_m": 0.3228530645765097,
+      "final_mean_m": 0.04643857048956317,
+      "final_max_m": 0.0475174280823215,
+      "elapsed_wall_s": 72.97979245600004,
+      "min_sampled_obstacle_clearance_m": 6.330000273711111,
+      "max_cross_track_m": 0.05054315269841738,
+      "saved_map_points": 37227,
+      "cloud_points": 37227,
+      "map_saved": true,
+      "trace_samples": 402,
+      "gps_approach_min_scan_m": 3.305354356765747
+    },
+    {
+      "world": 2,
+      "pass": true,
+      "waypoints_reached": 3,
+      "baseline_mean_m": 0.24975276824642095,
+      "baseline_max_m": 0.2841137786057145,
+      "final_mean_m": 0.0468420468405691,
+      "final_max_m": 0.048865776891632885,
+      "elapsed_wall_s": 75.35032545700005,
+      "min_sampled_obstacle_clearance_m": 5.834933462971605,
+      "max_cross_track_m": 0.05012118362127016,
+      "saved_map_points": 36789,
+      "cloud_points": 36788,
+      "map_saved": true,
+      "trace_samples": 412,
+      "gps_approach_min_scan_m": 3.305316686630249
+    },
+    {
+      "world": 3,
+      "pass": true,
+      "waypoints_reached": 3,
+      "baseline_mean_m": 0.26551664301978484,
+      "baseline_max_m": 0.31835721676568735,
+      "final_mean_m": 0.04727559156627641,
+      "final_max_m": 0.048798738923214784,
+      "elapsed_wall_s": 78.10297348699999,
+      "min_sampled_obstacle_clearance_m": 6.090629357456308,
+      "max_cross_track_m": 0.056334367260686344,
+      "saved_map_points": 38256,
+      "cloud_points": 38255,
+      "map_saved": true,
+      "trace_samples": 426,
+      "gps_approach_min_scan_m": 3.3053109645843506
+    },
+    {
+      "world": 4,
+      "pass": true,
+      "waypoints_reached": 3,
+      "baseline_mean_m": 0.29535017195487884,
+      "baseline_max_m": 0.3385257116994871,
+      "final_mean_m": 0.04637682260942424,
+      "final_max_m": 0.04718742403517442,
+      "elapsed_wall_s": 79.27908041799992,
+      "min_sampled_obstacle_clearance_m": 5.969169926637277,
+      "max_cross_track_m": 0.04884230167481468,
+      "saved_map_points": 37485,
+      "cloud_points": 37485,
+      "map_saved": true,
+      "trace_samples": 433,
+      "gps_approach_min_scan_m": 3.3053157329559326
+    },
+    {
+      "world": 5,
+      "pass": true,
+      "waypoints_reached": 3,
+      "baseline_mean_m": 0.2500574994964937,
+      "baseline_max_m": 0.29197582338525263,
+      "final_mean_m": 0.0479810448135734,
+      "final_max_m": 0.04829509742871702,
+      "elapsed_wall_s": 82.06604296600005,
+      "min_sampled_obstacle_clearance_m": 6.173007069796601,
+      "max_cross_track_m": 0.05246567483831316,
+      "saved_map_points": 36750,
+      "cloud_points": 36748,
+      "map_saved": true,
+      "trace_samples": 447,
+      "gps_approach_min_scan_m": 3.305551767349243
+    },
+    {
+      "world": 6,
+      "pass": true,
+      "waypoints_reached": 3,
+      "baseline_mean_m": 0.2388780939599639,
+      "baseline_max_m": 0.2942995275847226,
+      "final_mean_m": 0.046901880830083224,
+      "final_max_m": 0.04808372056600758,
+      "elapsed_wall_s": 82.65862016899996,
+      "min_sampled_obstacle_clearance_m": 6.054,
+      "max_cross_track_m": 0.04774868369412417,
+      "saved_map_points": 35875,
+      "cloud_points": 35874,
+      "map_saved": true,
+      "trace_samples": 450,
+      "gps_approach_min_scan_m": 3.305320978164673
+    },
+    {
+      "world": 7,
+      "pass": true,
+      "waypoints_reached": 3,
+      "baseline_mean_m": 0.2562536822615058,
+      "baseline_max_m": 0.29376746733715714,
+      "final_mean_m": 0.04634401416412453,
+      "final_max_m": 0.046649137801208655,
+      "elapsed_wall_s": 81.94670582499998,
+      "min_sampled_obstacle_clearance_m": 6.303547958458052,
+      "max_cross_track_m": 0.051883860291235824,
+      "saved_map_points": 36271,
+      "cloud_points": 36271,
+      "map_saved": true,
+      "trace_samples": 445,
+      "gps_approach_min_scan_m": 3.305250883102417
+    }
+  ],
+  "waypoints": [
+    {
+      "world": 1,
+      "waypoint": 1,
+      "target_map": [
+        3,
+        0
+      ],
+      "target_world": [
+        -9,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -9.3188722173877,
+          -0.05054315269841738
+        ],
+        "map": [
+          2.7563699893617417,
+          -0.048809144877472954
+        ],
+        "gps_base": [
+          -9.318872220319161,
+          -0.05054315319097244
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.3228530645765097,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 58,
+        "min_scan_range_m": 3.3062589168548584,
+        "elapsed_wall_s": 5.868145702999982,
+        "gps_error_m": 0.04642824724793475,
+        "stopped_dwell_sim_s": 1.0899999999999999
+      },
+      "final_truth_error_m": 0.04642824250536219,
+      "final_gps_error_m": 0.04642824724793475,
+      "pass": true
+    },
+    {
+      "world": 1,
+      "waypoint": 2,
+      "target_map": [
+        6,
+        0
+      ],
+      "target_world": [
+        -6,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -6.252787534739113,
+          -0.05039721397875643
+        ],
+        "map": [
+          5.761323649823684,
+          -0.04959945426482507
+        ],
+        "gps_base": [
+          -6.252787536947522,
+          -0.05039721322405043
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.2577623263712113,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 50,
+        "min_scan_range_m": 3.305910587310791,
+        "elapsed_wall_s": 5.0871272019999765,
+        "gps_error_m": 0.045370043815057555,
+        "stopped_dwell_sim_s": 1.0870000000000033
+      },
+      "final_truth_error_m": 0.045370040881005824,
+      "final_gps_error_m": 0.045370043815057555,
+      "pass": true
+    },
+    {
+      "world": 1,
+      "waypoint": 3,
+      "target_map": [
+        9,
+        0
+      ],
+      "target_world": [
+        -3,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -3.188440002026385,
+          -0.049623511004080745
+        ],
+        "map": [
+          8.76530368345987,
+          -0.04891150853646538
+        ],
+        "gps_base": [
+          -3.188440007510023,
+          -0.049623511158554706
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.19486438157876884,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 41,
+        "min_scan_range_m": 3.305354356765747,
+        "elapsed_wall_s": 4.1518239270000095,
+        "gps_error_m": 0.0475174329938232,
+        "stopped_dwell_sim_s": 1.0769999999999982
+      },
+      "final_truth_error_m": 0.0475174280823215,
+      "final_gps_error_m": 0.0475174329938232,
+      "pass": true
+    },
+    {
+      "world": 2,
+      "waypoint": 1,
+      "target_map": [
+        3,
+        0
+      ],
+      "target_world": [
+        -9,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -9.283158124449798,
+          -0.023283379301327987
+        ],
+        "map": [
+          2.748622577137165,
+          -0.023640049150153216
+        ],
+        "gps_base": [
+          -9.28315812824297,
+          -0.023283378832083312
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.2841137786057145,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 54,
+        "min_scan_range_m": 3.306101083755493,
+        "elapsed_wall_s": 5.473094727999978,
+        "gps_error_m": 0.044666342526916744,
+        "stopped_dwell_sim_s": 1.0949999999999989
+      },
+      "final_truth_error_m": 0.044666337971181205,
+      "final_gps_error_m": 0.044666342526916744,
+      "pass": true
+    },
+    {
+      "world": 2,
+      "waypoint": 2,
+      "target_map": [
+        6,
+        0
+      ],
+      "target_world": [
+        -6,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -6.252852753187208,
+          -0.05012118362127016
+        ],
+        "map": [
+          5.764485275154293,
+          -0.05075650897826825
+        ],
+        "gps_base": [
+          -6.252852757131358,
+          -0.050121183427876345
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.2577724730104981,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 53,
+        "min_scan_range_m": 3.3057727813720703,
+        "elapsed_wall_s": 5.368346582000015,
+        "gps_error_m": 0.04699403027835472,
+        "stopped_dwell_sim_s": 1.0150000000000006
+      },
+      "final_truth_error_m": 0.04699402565889321,
+      "final_gps_error_m": 0.04699403027835472,
+      "pass": true
+    },
+    {
+      "world": 2,
+      "waypoint": 3,
+      "target_map": [
+        9,
+        0
+      ],
+      "target_world": [
+        -3,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -3.2018140896073244,
+          -0.04768900976573127
+        ],
+        "map": [
+          8.756886521684226,
+          -0.0511823398936366
+        ],
+        "gps_base": [
+          -3.201814092922529,
+          -0.047689009964654694
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.20737205312305024,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 45,
+        "min_scan_range_m": 3.305316686630249,
+        "elapsed_wall_s": 4.599331129999996,
+        "gps_error_m": 0.048865781540176526,
+        "stopped_dwell_sim_s": 1.01400000000001
+      },
+      "final_truth_error_m": 0.048865776891632885,
+      "final_gps_error_m": 0.048865781540176526,
+      "pass": true
+    },
+    {
+      "world": 3,
+      "waypoint": 1,
+      "target_map": [
+        3,
+        0
+      ],
+      "target_world": [
+        -9,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -9.31762753616647,
+          -0.021542185024111725
+        ],
+        "map": [
+          2.7535856943933203,
+          -0.020894739730885785
+        ],
+        "gps_base": [
+          -9.317627538151166,
+          -0.021542184372022363
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.31835721676568735,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 63,
+        "min_scan_range_m": 3.306109666824341,
+        "elapsed_wall_s": 6.372826691,
+        "gps_error_m": 0.04540040160588149,
+        "stopped_dwell_sim_s": 1.0219999999999985
+      },
+      "final_truth_error_m": 0.04540039688966112,
+      "final_gps_error_m": 0.04540040160588149,
+      "pass": true
+    },
+    {
+      "world": 3,
+      "waypoint": 2,
+      "target_map": [
+        6,
+        0
+      ],
+      "target_world": [
+        -6,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -6.2682093333278655,
+          -0.053108729889146514
+        ],
+        "map": [
+          5.762691158690274,
+          -0.047167244013924386
+        ],
+        "gps_base": [
+          -6.268209337087154,
+          -0.05310872989126744
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.2734168679409088,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 54,
+        "min_scan_range_m": 3.3058602809906006,
+        "elapsed_wall_s": 5.499740725000038,
+        "gps_error_m": 0.04879874327196264,
+        "stopped_dwell_sim_s": 1.0150000000000006
+      },
+      "final_truth_error_m": 0.048798738923214784,
+      "final_gps_error_m": 0.04879874327196264,
+      "pass": true
+    },
+    {
+      "world": 3,
+      "waypoint": 3,
+      "target_map": [
+        9,
+        0
+      ],
+      "target_world": [
+        -3,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -3.197158943169285,
+          -0.05533080117579894
+        ],
+        "map": [
+          8.75295054555289,
+          -0.04928149786057565
+        ],
+        "gps_base": [
+          -3.197158946455583,
+          -0.055330801064782276
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.20477584435275828,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 47,
+        "min_scan_range_m": 3.3053109645843506,
+        "elapsed_wall_s": 4.7843862979999585,
+        "gps_error_m": 0.047627643903737325,
+        "stopped_dwell_sim_s": 1.0019999999999953
+      },
+      "final_truth_error_m": 0.04762763888595334,
+      "final_gps_error_m": 0.047627643903737325,
+      "pass": true
+    },
+    {
+      "world": 4,
+      "waypoint": 1,
+      "target_map": [
+        3,
+        0
+      ],
+      "target_world": [
+        -9,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -9.337873563040917,
+          -0.021002687439460488
+        ],
+        "map": [
+          2.7579956902456195,
+          -0.02246610873999789
+        ],
+        "gps_base": [
+          -9.337873565248044,
+          -0.02100268693876267
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.3385257116994871,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 65,
+        "min_scan_range_m": 3.30625057220459,
+        "elapsed_wall_s": 6.608070362000035,
+        "gps_error_m": 0.045889581152776186,
+        "stopped_dwell_sim_s": 1.0090000000000003
+      },
+      "final_truth_error_m": 0.04588957690647522,
+      "final_gps_error_m": 0.045889581152776186,
+      "pass": true
+    },
+    {
+      "world": 4,
+      "waypoint": 2,
+      "target_map": [
+        6,
+        0
+      ],
+      "target_world": [
+        -6,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -6.292777398827308,
+          -0.048588908858896294
+        ],
+        "map": [
+          5.7519482404222,
+          -0.049327271564769605
+        ],
+        "gps_base": [
+          -6.292777402418747,
+          -0.04858890905012549
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.29678188510787307,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 58,
+        "min_scan_range_m": 3.305712938308716,
+        "elapsed_wall_s": 5.880372922999982,
+        "gps_error_m": 0.04718742703463679,
+        "stopped_dwell_sim_s": 1.0380000000000038
+      },
+      "final_truth_error_m": 0.04718742403517442,
+      "final_gps_error_m": 0.04718742703463679,
+      "pass": true
+    },
+    {
+      "world": 4,
+      "waypoint": 3,
+      "target_map": [
+        9,
+        0
+      ],
+      "target_world": [
+        -3,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -3.246676703326758,
+          -0.04497349767592508
+        ],
+        "map": [
+          8.751104158086088,
+          -0.04813676440315278
+        ],
+        "gps_base": [
+          -3.246676708167308,
+          -0.044973497710202925
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.25074291905727636,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 52,
+        "min_scan_range_m": 3.3053157329559326,
+        "elapsed_wall_s": 5.285540793999985,
+        "gps_error_m": 0.04605347107923156,
+        "stopped_dwell_sim_s": 1.0379999999999967
+      },
+      "final_truth_error_m": 0.04605346688662307,
+      "final_gps_error_m": 0.04605347107923156,
+      "pass": true
+    },
+    {
+      "world": 5,
+      "waypoint": 1,
+      "target_map": [
+        3,
+        0
+      ],
+      "target_world": [
+        -9,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -9.291304963629257,
+          -0.019781294357390084
+        ],
+        "map": [
+          2.7486384071194943,
+          -0.019676763627387937
+        ],
+        "gps_base": [
+          -9.291304964896216,
+          -0.019781293669754674
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.29197582338525263,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 55,
+        "min_scan_range_m": 3.3061163425445557,
+        "elapsed_wall_s": 5.586219272999983,
+        "gps_error_m": 0.04829510205240592,
+        "stopped_dwell_sim_s": 1.0539999999999985
+      },
+      "final_truth_error_m": 0.04829509742871702,
+      "final_gps_error_m": 0.04829510205240592,
+      "pass": true
+    },
+    {
+      "world": 5,
+      "waypoint": 2,
+      "target_map": [
+        6,
+        0
+      ],
+      "target_world": [
+        -6,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -6.25270318687556,
+          -0.05119978153871561
+        ],
+        "map": [
+          5.760374035804843,
+          -0.05107376592316256
+        ],
+        "gps_base": [
+          -6.252703191434331,
+          -0.051199780990552585
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.25783777513521233,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 59,
+        "min_scan_range_m": 3.305835247039795,
+        "elapsed_wall_s": 5.997727766999901,
+        "gps_error_m": 0.04756020857522823,
+        "stopped_dwell_sim_s": 1.006999999999998
+      },
+      "final_truth_error_m": 0.04756020349996349,
+      "final_gps_error_m": 0.04756020857522823,
+      "pass": true
+    },
+    {
+      "world": 5,
+      "waypoint": 3,
+      "target_map": [
+        9,
+        0
+      ],
+      "target_world": [
+        -3,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -3.1935631126543176,
+          -0.05173983200945028
+        ],
+        "map": [
+          8.764003629094315,
+          -0.05199163731428634
+        ],
+        "gps_base": [
+          -3.1935631151554276,
+          -0.0517398316962759
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.20035889996901604,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 52,
+        "min_scan_range_m": 3.305551767349243,
+        "elapsed_wall_s": 5.315021205000107,
+        "gps_error_m": 0.04808783796330923,
+        "stopped_dwell_sim_s": 1.0720000000000027
+      },
+      "final_truth_error_m": 0.04808783351203967,
+      "final_gps_error_m": 0.04808783796330923,
+      "pass": true
+    },
+    {
+      "world": 6,
+      "waypoint": 1,
+      "target_map": [
+        3,
+        0
+      ],
+      "target_world": [
+        -9,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -9.290475940310253,
+          -0.047285727629645044
+        ],
+        "map": [
+          2.7828921685189796,
+          -0.04969562459480376
+        ],
+        "gps_base": [
+          -9.290475944463335,
+          -0.04728572774685147
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.2942995275847226,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 61,
+        "min_scan_range_m": 3.3061676025390625,
+        "elapsed_wall_s": 6.200080185999923,
+        "gps_error_m": 0.04624872355673703,
+        "stopped_dwell_sim_s": 1.0600000000000023
+      },
+      "final_truth_error_m": 0.04624871702922402,
+      "final_gps_error_m": 0.04624872355673703,
+      "pass": true
+    },
+    {
+      "world": 6,
+      "waypoint": 2,
+      "target_map": [
+        6,
+        0
+      ],
+      "target_world": [
+        -6,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -6.251407106679274,
+          -0.0475971828332498
+        ],
+        "map": [
+          5.758617262421818,
+          -0.0502383242389546
+        ],
+        "gps_base": [
+          -6.251407110433405,
+          -0.04759718317220035
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.2558730644333349,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 56,
+        "min_scan_range_m": 3.3057329654693604,
+        "elapsed_wall_s": 5.668177829000001,
+        "gps_error_m": 0.04808372474990474,
+        "stopped_dwell_sim_s": 1.0519999999999996
+      },
+      "final_truth_error_m": 0.04808372056600758,
+      "final_gps_error_m": 0.04808372474990474,
+      "pass": true
+    },
+    {
+      "world": 6,
+      "waypoint": 3,
+      "target_map": [
+        9,
+        0
+      ],
+      "target_world": [
+        -3,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -3.1602873411196284,
+          -0.044916171569462024
+        ],
+        "map": [
+          8.772446463318957,
+          -0.048718391009345906
+        ],
+        "gps_base": [
+          -3.160287344848847,
+          -0.04491617135320777
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.16646168986183416,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 43,
+        "min_scan_range_m": 3.305320978164673,
+        "elapsed_wall_s": 4.3503203989999975,
+        "gps_error_m": 0.04637320837561974,
+        "stopped_dwell_sim_s": 1.0529999999999973
+      },
+      "final_truth_error_m": 0.046373204895018075,
+      "final_gps_error_m": 0.04637320837561974,
+      "pass": true
+    },
+    {
+      "world": 7,
+      "waypoint": 1,
+      "target_map": [
+        3,
+        0
+      ],
+      "target_world": [
+        -9,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -9.289379494368397,
+          -0.05058490985243005
+        ],
+        "map": [
+          2.7633493295103517,
+          -0.050317070049096704
+        ],
+        "gps_base": [
+          -9.28937949801936,
+          -0.05058490995947837
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.29376746733715714,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 62,
+        "min_scan_range_m": 3.306147813796997,
+        "elapsed_wall_s": 6.32329840400007,
+        "gps_error_m": 0.046649141880065116,
+        "stopped_dwell_sim_s": 1.0800000000000018
+      },
+      "final_truth_error_m": 0.046649137801208655,
+      "final_gps_error_m": 0.046649141880065116,
+      "pass": true
+    },
+    {
+      "world": 7,
+      "waypoint": 2,
+      "target_map": [
+        6,
+        0
+      ],
+      "target_world": [
+        -6,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -6.266098518824081,
+          -0.04994785372805554
+        ],
+        "map": [
+          5.7633083385697,
+          -0.04830132911396216
+        ],
+        "gps_base": [
+          -6.266098523162648,
+          -0.04994785329557387
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.2707456552050448,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 58,
+        "min_scan_range_m": 3.305745840072632,
+        "elapsed_wall_s": 5.89098963899994,
+        "gps_error_m": 0.046437062620588665,
+        "stopped_dwell_sim_s": 1.0830000000000055
+      },
+      "final_truth_error_m": 0.04643705764664185,
+      "final_gps_error_m": 0.046437062620588665,
+      "pass": true
+    },
+    {
+      "world": 7,
+      "waypoint": 3,
+      "target_map": [
+        9,
+        0
+      ],
+      "target_world": [
+        -3,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -3.197548170324542,
+          -0.051883860291235824
+        ],
+        "map": [
+          8.753558859739186,
+          -0.04982527337495018
+        ],
+        "gps_base": [
+          -3.197548174177658,
+          -0.051883860201953
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.20424792424231555,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 48,
+        "min_scan_range_m": 3.305250883102417,
+        "elapsed_wall_s": 4.867558648000113,
+        "gps_error_m": 0.04594585080980272,
+        "stopped_dwell_sim_s": 1.0630000000000024
+      },
+      "final_truth_error_m": 0.045945847044523085,
+      "final_gps_error_m": 0.04594585080980272,
+      "pass": true
+    }
+  ],
+  "criteria_m": 0.1,
+  "evaluation": "Ground truth only used for scoring; GPS is ideal; fresh online map per world; identical procedure; fixed seed 42",
+  "mean_final_error_m": 0.04687999590194487,
+  "max_final_error_m": 0.048865776891632885,
+  "mean_baseline_error_m": 0.25918601663541113,
+  "mean_error_reduction_percent": 81.91260604622452
+}

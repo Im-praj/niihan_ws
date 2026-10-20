@@ -43,7 +43,7 @@ if $check; then
   python3 - <<'PY'
 import importlib
 from ament_index_python.packages import get_package_share_directory
-for name in ['numpy','scipy','yaml','websockets','serial','cv2']:
+for name in ['numpy','scipy','yaml','websockets','serial','cv2','psutil','PIL']:
     importlib.import_module(name)
 for name in ['ros_gz_sim','ros_gz_bridge','rviz2','cv_bridge','sensor_msgs_py']:
     get_package_share_directory(name)
@@ -101,7 +101,7 @@ if $system; then
   sudo apt-get install -y "${apt_safety[@]}" --no-install-recommends \
     "${build_packages[@]}" libboost-filesystem-dev libboost-serialization-dev libboost-timer-dev libboost-program-options-dev \
     python3-numpy python3-scipy python3-yaml python3-aiohttp python3-websockets \
-    python3-serial python3-opencv nodejs ripgrep \
+    python3-serial python3-opencv python3-psutil python3-pil nodejs ripgrep \
     libmetis-dev libfmt-dev libspdlog-dev libomp-dev \
     ros-${NIIHAN_ROS_DISTRO}-ros-base ros-${NIIHAN_ROS_DISTRO}-navigation2 ros-${NIIHAN_ROS_DISTRO}-nav2-bringup \
     "$NIIHAN_GZ_BRIDGE" "${gazebo_packages[@]}" ros-${NIIHAN_ROS_DISTRO}-rviz2 ros-${NIIHAN_ROS_DISTRO}-xacro \

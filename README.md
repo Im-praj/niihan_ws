@@ -24,7 +24,7 @@ Native targets (amd64):
 
 Setup selects the native pairing automatically. This does not support Humble on 24.04 or Jazzy on 22.04 natively; use a matching OS container/VM for those combinations. A working graphical display and OpenGL rendering are required. Windows/macOS/native ROS distributions are not validated. A fresh source clone can be tested on this host; that does not certify every GPU or clean operating-system installation.
 
-The setup script installs the native ROS and Gazebo prerequisites. For a manual Humble development environment, install ROS Humble and Gazebo Harmonic from their official instructions. Use the Harmonic-compatible `ros-humble-ros-gzharmonic` bridge, not a mismatched default Gazebo bridge. Install Nav2 (`ros-humble-navigation2`, `ros-humble-nav2-bringup`), Xacro, robot state publisher, sensor_msgs_py, cv_bridge, image_transport, rosbag2 and colcon/rosdep. Python packages: numpy, scipy, PyYAML, aiohttp, websockets, pytest, pyserial; Node.js and GCC are used by validation.
+The setup script installs the native ROS and Gazebo prerequisites. For a manual Humble development environment, install ROS Humble and Gazebo Harmonic from their official instructions. Use the Harmonic-compatible `ros-humble-ros-gzharmonic` bridge, not a mismatched default Gazebo bridge. Install Nav2 (`ros-humble-navigation2`, `ros-humble-nav2-bringup`), Xacro, robot state publisher, sensor_msgs_py, cv_bridge, image_transport, rosbag2 and colcon/rosdep. Python packages: numpy, scipy, PyYAML, aiohttp, websockets, pytest, pyserial, psutil, Pillow; Node.js and GCC are used by validation.
 
 GLIM source prerequisites: GTSAM 4.3a0 (`3ad4b4c3cb28394c9597f48fa02dad361c8450e3`), gtsam_points v1.2.2 (`9d32e7dbecf6015560d84b4901d6b0a6f483ec46`), Eigen, Boost, OpenMP, fmt, spdlog and OpenCV. See [official GLIM installation](https://koide3.github.io/glim/installation.html). Choose CPU dependencies/builds. CUDA and Iridescence are not required for this profile; the browser remains graphical with `BUILD_WITH_VIEWER=OFF`. This flag disables GLIM's separate desktop editor, not Gazebo or the dashboard. Record dependency versions before comparison runs.
 
@@ -33,13 +33,16 @@ GLIM source prerequisites: GTSAM 4.3a0 (`3ad4b4c3cb28394c9597f48fa02dad361c8450e
 On Ubuntu 22.04 or 24.04 amd64 with a graphical desktop:
 
 ```bash
-git clone --branch feat/l2-3d-slam-release https://github.com/Im-praj/niihan_ws.git
+sudo apt-get install git-lfs
+git lfs install
+git clone --recurse-submodules --branch feat/l2-3d-slam-release https://github.com/Im-praj/niihan_ws.git
 cd niihan_ws
-./setup.sh
+git lfs pull
+./setup.sh --source
 ./run.sh
 ```
 
-If already cloned, use `git pull --ff-only origin feat/l2-3d-slam-release` instead of cloning again. Default setup downloads the revision-matched CPU binary archive from GitHub Releases after installing runtime prerequisites. `./setup.sh --source` explicitly compiles instead. Setup uses sudo for apt packages and official ROS/Gazebo repository configuration when needed. The source fallback compiles pinned CPU GTSAM/gtsam_points into `.deps/install` (Humble) or `.deps/jazzy/install` (Jazzy), builds the selected package set and runs validation. Compilation can take considerable time; leave the terminal open. It does not install graphics drivers. Logs and failure details are saved in `.setup/logs`. Setup stops on failure; do not run `run.sh` until it succeeds.
+If already cloned, use `git pull --ff-only origin feat/l2-3d-slam-release` followed by `git submodule update --init --recursive` and `git lfs pull` instead of cloning again. The source command above works before a binary release for this revision is available. Default setup downloads the revision-matched CPU binary archive from GitHub Releases after installing runtime prerequisites. `./setup.sh --source` explicitly compiles instead. Setup uses sudo for apt packages and official ROS/Gazebo repository configuration when needed. The source fallback compiles pinned CPU GTSAM/gtsam_points into `.deps/install` (Humble) or `.deps/jazzy/install` (Jazzy), builds the selected package set and runs validation. Compilation can take considerable time; leave the terminal open. It does not install graphics drivers. Logs and failure details are saved in `.setup/logs`. Setup stops on failure; do not run `run.sh` until it succeeds.
 
 `./setup.sh --check` checks prerequisites/package lookup without installing. `--no-system` skips apt for a prepared host. `--use-system-deps` reuses existing compatible GTSAM/gtsam_points for an already commissioned development machine. `--clean` preserves build/install/log in `.setup/backups` before rebuilding; use this for incomplete old overlays. The scripts start with a clean ROS environment and isolate pytest from unrelated automatic plugin loading. They never delete source or modify system Python with pip.
 
@@ -48,8 +51,11 @@ If already cloned, use `git pull --ff-only origin feat/l2-3d-slam-release` inste
 ## Clone and build
 
 ```bash
+sudo apt-get install git-lfs
+git lfs install
 git clone --recurse-submodules --branch feat/l2-3d-slam-release https://github.com/Im-praj/niihan_ws.git
 cd niihan_ws
+git lfs pull
 ./setup.sh --source
 ./run.sh
 ```
@@ -68,7 +74,7 @@ Open [dashboard](http://127.0.0.1:8080). HTTP and WebSocket bind to localhost. T
 
 `seed:=42` fixes Gazebo's random seed for comparable tests; 42 has no special SLAM meaning. CPU scheduling, sensor delivery and numerical optimization still vary. Repeatability means passing measured tolerances over repeated runs, not byte-identical maps.
 
-The default portable world uses distributable primitive geometry. The older construction world references proprietary GLB assets omitted from Git and can fail on a clone. Use the portable world for release checks. All launches default to visible simulation in the new profile.
+The default portable world uses distributable primitive geometry. The detailed construction mesh is stored with Git LFS and its companion collision assets are included. Run `git lfs pull` before building. The owner authorized publication; preserve the supplied asset license and see docs/DEPENDENCIES.md. Use the portable world for release checks. All launches default to visible simulation in the new profile.
 
 ## Data flow
 
@@ -82,7 +88,7 @@ Vortex is a cloud serialization helper here; it is not the SLAM estimator. Nav2 
 ros2 service call /niihan/slam/save_map std_srvs/srv/Trigger '{}'
 ```
 
-This writes `map_3d.npz`, `map.pgm`, `map.yaml` to `output_directory`. Stop the mapping launch before starting localization:
+This writes an immutable checkpoint, atomically updates `current.json`, and exports `map_3d.npz`, `map.pgm` and `map.yaml` to the selected output directory. The new default `mode:=auto` first maps and later reuses the current checkpoint under `~/.local/share/niihan/maps/<environment_id>`. It checks the world hash; changing a world requires a new environment ID. Use `mode:=mapping` for a fresh benchmark map. Explicit output directories can be reused with `map_file`; automatic discovery uses the environment directory. Stop the mapping launch before starting localization:
 
 ```bash
 ros2 launch niihan_slam slam_simulation.launch.py \
@@ -164,3 +170,28 @@ Do not migrate an existing install directory between ROS versions. Setup records
 `./setup.sh` installs apt prerequisites and downloads `niihan-ubuntu22.04-humble-amd64.tar.gz` or `niihan-ubuntu24.04-jazzy-amd64.tar.gz` from the release tagged `binaries-<full source commit>`. It verifies SHA-256 plus source commit, OS, ROS, architecture and Python metadata before installing. The old install is preserved under `.setup/backups`; runtime shared libraries are isolated under `.binary/deps/lib`. `./run.sh` remains the visible launch entry point. No C++ compilation occurs on this default path.
 
 For developers and CI, use `./setup.sh --source`; optional `--no-system --use-system-deps` applies to a prepared development machine. If this commit's binary release is still building or failed, setup reports that instead of pretending a binary is available. See GitHub Actions and Releases. A successful package installation check does not certify simulation, physical L2 operation or every graphics driver. SHA-256 detects corruption; trust still comes from this repository's release publication.
+
+
+## Seven seaport layouts and GPS endpoint validation
+
+Seven worlds `seaport_01.sdf` through `seaport_07.sdf` in `src/niihan_description/worlds` retain the quay, crane, ship, warehouse, clear lane and rover spawn while varying cargo positions. They use procedural SDF geometry and require no imported meshes. The final route starts at world (-12, 0) and uses identical straight eastbound targets (-9, 0), (-6, 0), (-3, 0) metres in every layout. GLIM 3D SLAM and the 2D Nav2 projection remain active; the observer dashboard shows the point cloud, 2D map, GPS coordinates and labelled synthetic satellite markers without a separate world-model viewer.
+
+```bash
+# After ./setup.sh --source
+bash scripts/seaport_validation/scripts/run_suite.sh
+# Optional: layouts 2 through 4 only
+bash scripts/seaport_validation/scripts/run_suite.sh 2 4
+python3 scripts/seaport_validation/scripts/aggregate.py scripts/seaport_validation/runs/YYYYMMDD_HHMMSS
+```
+
+Leave ports 8080 and 8081 free. Each trial starts/stops its observer and uses isolated ROS/Gazebo domains. Results go to new timestamped run directories; NIIHAN_SEAPORT_OUTPUT overrides this location. The suite shell script finds the workspace relative to itself. The route was tested on Humble; Jazzy route acceptance remains pending. See [suite instructions](scripts/seaport_validation/README.md) and [recorded report and evidence](docs/seaport_validation/README.md).
+
+Measured on 20 October 2026: **7/7 routes and 21/21 waypoints passed**, with seven saved GLIM maps. Mean horizontal arrival error was 4.69 cm and maximum 4.89 cm against simulator truth, within the 10 cm criterion. Nav2 performs coarse arrival, then a bounded GPS final controller commands through the arbiter. GPS is ideal Gazebo NavSat with no realistic noise, outages or RF propagation; twelve sky markers are display fixtures and RTK is false. Ground truth is scoring only. One seed and one run per layout with fresh online mapping support the tested clear corridor only, not general environmental independence, frozen-map reuse or real GPS precision. Earlier turn/return trials passed 3/7 and are disclosed separately in the Word draft.
+
+## Map and GNSS changes
+
+Environment-scoped map checkpoints are validated by checksum before reuse. GNSS antenna transforms, F9P quality metrics and an optional surveyed map alignment support independent RTK endpoint verification. This requires calibrated alignment for the same environment and valid fixed-quality receiver data. It does not fuse GPS into GLIM or publish a second navigation TF. Scripts in `scripts/testing` explicitly emulate receiver data and do not commission physical hardware. The seaport experiment uses ideal NavSat and its own final controller rather than physical RTK.
+
+## External dependencies
+
+See [dependency sources and revisions](docs/DEPENDENCIES.md) for upstream URLs, pinned commits, clone instructions, local patches and asset handling. Recursive clone obtains the upstream libraries; source setup also builds pinned GTSAM/gtsam_points. Do not copy build/install directories between machines. Preserve upstream and vendored browser licenses.

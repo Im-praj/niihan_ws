@@ -48,18 +48,18 @@ window.addEventListener('load', () => {
         document.getElementById('map-status-3d').textContent = '3D VIEW UNAVAILABLE';
         console.warn('3D viewer unavailable:', error);
     }
-    
+
     // Tab switching
     const tabBtns = document.querySelectorAll('.tab-btn');
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.view-container').forEach(c => c.classList.remove('active'));
-            
+
             btn.classList.add('active');
             const target = document.getElementById(btn.dataset.target);
             target.classList.add('active');
-            
+
             if (btn.dataset.target === 'view-3d' && viewer3d) {
                 viewer3d.onWindowResize();
             } else if (btn.dataset.target === 'view-2d') {
@@ -131,7 +131,7 @@ function connectWebSocket() {
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        
+
         if (data.type === "telemetry") {
             updateTelemetry(data);
         } else if (data.type === "map") {
@@ -165,28 +165,34 @@ function updateTelemetry(data) {
     if (runtimeEl) runtimeEl.textContent = (data.slam || {}).simulation === true ? 'SIMULATION' : 'UNKNOWN';
     const slamEl = document.getElementById('slam-status');
     if (slamEl) slamEl.textContent = 'SLAM: ' + ((data.slam || {}).backend || 'unknown');
+    const mapState=document.getElementById('tel-map-state');
+    const slam=data.slam||{};
+    if(mapState)mapState.textContent=`MAP: ${slam.mode||'unknown'} · SITE: ${slam.environment_id||'unset'} · ${slam.map_checkpoint_ready?'SAVED':'not saved yet'}${slam.save_error?' · SAVE FAILED':''}`;
     const health = data.hardware_health || {};
     const gnss = data.gnss || {};
     const healthEl = document.getElementById("tel-health");
     const gnssEl = document.getElementById("tel-gnss");
     if (healthEl) healthEl.textContent = health.ready ? "Sensors ready" : "Motion inhibited: " + ((health.faults || []).join(", ") || "waiting for supervisor");
     if (gnssEl) gnssEl.textContent = "GNSS: " + (gnss.quality || "unknown") + (Number.isFinite(gnss.latitude) && Number.isFinite(gnss.longitude) ? " | " + gnss.latitude.toFixed(7) + ", " + gnss.longitude.toFixed(7) : "");
+    const gpsMetrics=document.getElementById('tel-gnss-metrics');
+    const dop=v=>Number.isFinite(v)?v.toFixed(2):'N/A';
+    if(gpsMetrics) gpsMetrics.textContent=`GPS LOCK: ${gnss.fresh&&gnss.lock?'YES':'NO'} · RTK: ${gnss.fresh&&gnss.rtk_lock?'FIXED':'NO'} · SAT: ${gnss.fresh&&Number.isInteger(gnss.satellite_count)?gnss.satellite_count:'N/A'} · HDOP: ${dop(gnss.hdop)} · VDOP: ${dop(gnss.vdop)}${gnss.simulation?' · SIMULATED':''}`;
     // Pose
     document.getElementById('tel-x').textContent = data.pose.x.toFixed(2);
     document.getElementById('tel-y').textContent = data.pose.y.toFixed(2);
     document.getElementById('tel-z').textContent = data.pose.z.toFixed(2);
     document.getElementById('tel-yaw').textContent = (data.pose.yaw * 180 / Math.PI).toFixed(1);
-    
+
     document.getElementById('vel-status').textContent = 'VEL: ' + data.velocity.linear_x.toFixed(2) + ' m/s';
     // Vel
     document.getElementById('tel-vel-x').textContent = data.velocity.linear_x.toFixed(2);
     document.getElementById('tel-vel-z').textContent = data.velocity.angular_z.toFixed(2);
-    
+
     // Status
     const poseValid = data.pose_valid !== false && (!data.localization.health || data.localization.health === 'OK');
     elLoc.textContent = `LOC: ${data.localization.source} ${data.localization.health || ''}`;
     elLoc.className = `status-badge ${poseValid ? 'ok' : 'error'}`;
-    
+
     mode = data.mode;
     if(mode === "MANUAL") {
         btnManual.classList.add('active');
@@ -197,7 +203,7 @@ function updateTelemetry(data) {
         btnManual.classList.remove('active');
         elMode.textContent = "AUTO";
     }
-    
+
     estopActive = data.estop;
     if(estopActive) {
         btnEstop.style.display = "none";
@@ -209,15 +215,15 @@ function updateTelemetry(data) {
         btnEstop.style.display = "block";
         btnClearEstop.style.display = "none";
     }
-    
+
     nav2Ready = data.nav2_ready;
     elNav.textContent = nav2Ready ? "NAV2: READY" : "NAV2: NOT AVAILABLE";
     elNav.className = nav2Ready ? "status-badge ok" : "status-badge error";
-    
+
     robotPose = data.pose;
     if (viewer3d) viewer3d.updateRobotPose(robotPose.x, robotPose.y, robotPose.z, robotPose.yaw, robotPose.roll, robotPose.pitch);
     if (viewer2d) viewer2d.updateRobotPose(robotPose.x, robotPose.y, robotPose.yaw);
-    
+
     // Mission
     const m = data.mission;
     missionState.textContent = m.state;
@@ -234,10 +240,10 @@ function updateTelemetry(data) {
     const active = waypoints.find(waypoint => waypoint.status === 'ACTIVE');
     missionProgress.textContent = `${completed}/${waypoints.length} reached${active ? ` · Active WP ${active.id}` : ''}`;
     const navigation = data.navigation || {state: 'UNKNOWN', message: ''};
-    document.getElementById('navigation-status').textContent = `NAVIGATION: ${navigation.state}${navigation.message ? ` — ${navigation.message}` : ''}`;
+    document.getElementById('navigation-status').textContent = `NAVIGATION: ${navigation.state}${navigation.message ? ` — ${navigation.message}` : ''}${Number.isFinite(navigation.xyz_error_m)?` · ${navigation.verification_source||'XYZ'} error ${navigation.xyz_error_m.toFixed(3)} m`:''}`;
     document.getElementById('btn-start-mission').disabled =
         !isConnected || m.state !== 'READY' || mode !== 'AUTO' || estopActive || !nav2Ready || !poseValid;
-    
+
     document.getElementById('btn-pause-mission').disabled = !isConnected || m.state !== 'RUNNING';
     document.getElementById('btn-resume-mission').disabled = !isConnected || m.state !== 'PAUSED' || mode !== 'AUTO' || estopActive || !nav2Ready || !poseValid;
     // Geofence
@@ -351,32 +357,32 @@ function renderWaypointTable() {
     wpList.innerHTML = '';
     waypoints.forEach((wp, index) => {
         const tr = document.createElement('tr');
-        
+
         // ID
         let td = document.createElement('td');
         td.textContent = wp.id;
         tr.appendChild(td);
-        
+
         // X
         td = document.createElement('td');
         td.innerHTML = `<input type="number" step="0.1" value="${wp.x.toFixed(2)}" onchange="updateWp(${wp.id}, 'x', this.value)">`;
         tr.appendChild(td);
-        
+
         // Y
         td = document.createElement('td');
         td.innerHTML = `<input type="number" step="0.1" value="${wp.y.toFixed(2)}" onchange="updateWp(${wp.id}, 'y', this.value)">`;
         tr.appendChild(td);
-        
+
         // Z
         td = document.createElement('td');
         td.innerHTML = `<input type="number" step="0.1" value="${wp.z.toFixed(2)}" onchange="updateWp(${wp.id}, 'z', this.value)">`;
         tr.appendChild(td);
-        
+
         // Status
         td = document.createElement('td');
         td.textContent = wp.status;
         tr.appendChild(td);
-        
+
         // Actions
         td = document.createElement('td');
         td.innerHTML = `
@@ -385,7 +391,7 @@ function renderWaypointTable() {
             <button onclick="deleteWp(${wp.id})" style="color:red;">✕</button>
         `;
         tr.appendChild(td);
-        
+
         wpList.appendChild(tr);
     });
     wpList.querySelectorAll('input, button').forEach(element => { element.disabled = missionIsRunning; });
@@ -394,7 +400,7 @@ function renderWaypointTable() {
 window.updateWp = function(id, field, val) {
     let wp = waypoints.find(w => w.id === id);
     if(!wp) return;
-    
+
     let numVal = parseFloat(val);
     if (!Number.isFinite(numVal)) {
         showCommandStatus('Waypoint coordinates and heading must be finite numbers.');
@@ -404,7 +410,7 @@ window.updateWp = function(id, field, val) {
     if(field === 'yaw') {
         numVal = numVal * Math.PI / 180.0;
     }
-    
+
     sendCommand({
         action: "update_waypoint",
         id: id,
@@ -442,31 +448,31 @@ document.addEventListener('mouseup', () => {
 });
 document.addEventListener('mousemove', (e) => {
     if (!isDraggingJoy) return;
-    
+
     const rect = joyZone.getBoundingClientRect();
     const centerX = rect.left + 75;
     const centerY = rect.top + 75;
-    
+
     let dx = e.clientX - centerX;
     let dy = e.clientY - centerY;
-    
+
     const maxRadius = 50;
     const dist = Math.sqrt(dx*dx + dy*dy);
-    
+
     if (dist > maxRadius) {
         dx = dx * maxRadius / dist;
         dy = dy * maxRadius / dist;
     }
-    
+
     joyKnob.style.left = (50 + dx) + 'px';
     joyKnob.style.top = (50 + dy) + 'px';
-    
+
     const normalizedY = -dy / maxRadius; // Forward is positive
     const normalizedX = -dx / maxRadius; // Left is positive angular.z
-    
+
     const linear_x = normalizedY * maxLinearSpeed;
     const angular_z = normalizedX * maxAngularSpeed;
-    
+
     sendJoyCmd(linear_x, angular_z);
 });
 
@@ -476,10 +482,10 @@ let joyTimer = null;
 function sendJoyCmd(x, z) {
     joyCmd.x = x;
     joyCmd.z = z;
-    
+
     if(Math.abs(x) < 0.1) joyCmd.x = 0;
     if(Math.abs(z) < 0.1) joyCmd.z = 0;
-    
+
     if(joyCmd.x === 0 && joyCmd.z === 0) {
         if(joyTimer) { clearInterval(joyTimer); joyTimer = null; }
         sendCommand({action: "joystick", linear_x: 0, angular_z: 0});

@@ -10,7 +10,7 @@ Use `ros2 launch niihan_description niihan_gazebo.launch.py` for configurable si
 
 - `urdf/`: Xacro robot structure and simulated sensors.
 - `worlds/niihan_construction_site.sdf`: static mesh-based construction scene.
-- `models/construction_site_chunk5/`: optional proprietary collision meshes; excluded from Git.
+- `models/construction_site_chunk5/`: supplied collision meshes with their original proprietary license; publication authorized by the repository owner. See ../../docs/DEPENDENCIES.md.
 - `config/`: Nav2, SLAM and existing patrol presets. Preset route safety requires inspection against the selected map.
 - `test/`: kinematics, point-cloud, TF, launch clock, navigation and world contracts.
 

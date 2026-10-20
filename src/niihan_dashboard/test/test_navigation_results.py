@@ -225,3 +225,52 @@ def test_action_endpoint_does_not_imply_active_or_fresh_nav2():
     assert node.check_nav2() is True
     node._nav2_lifecycle['controller']['received'] = now-5
     assert node.check_nav2() is False
+
+def rtk_bridge():
+    node,operation=bridge();node.rtk_goal_verification=True;node.rtk_goal_tolerance=.10
+    node.rtk_pose={'x':2.,'y':3.,'z':-.6,'stamp':1.};node._rtk_ready=lambda:True
+    node.arrival_dwell_seconds=1.;node.telemetry['velocity']={'linear_x':0.,'angular_z':0.}
+    node.geofence_margin=.45;node.geofence_manager=GeofenceManager()
+    return node,operation
+
+def test_rtk_success_requires_stopped_dwell_and_distinct_measurements(monkeypatch):
+    import niihan_dashboard.ros_bridge as module
+    now=[10.];monkeypatch.setattr(module.time,'monotonic',lambda:now[0])
+    node,operation=rtk_bridge()
+    node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)),operation,1)
+    assert node.navigation['state']=='VERIFYING' and not node.dispatched
+    for t,stamp in [(10.,1.),(10.5,2.),(11.1,3.)]:
+        now[0]=t;node.rtk_pose['stamp']=stamp;node._check_arrival()
+    assert node.dispatched==[1] and node.mission_manager.waypoints[0]['status']=='COMPLETED'
+
+def test_repeated_identical_fix_cannot_satisfy_arrival(monkeypatch):
+    import niihan_dashboard.ros_bridge as module
+    now=[10.];monkeypatch.setattr(module.time,'monotonic',lambda:now[0])
+    node,operation=rtk_bridge();node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)),operation,1)
+    for t in [10.,10.5,11.1,12.]:now[0]=t;node._check_arrival()
+    assert not node.dispatched and node.navigation['state']=='VERIFYING'
+    now[0]=21.;node._check_arrival()
+    assert node.mission_manager.state=='FAILED'
+
+def test_rtk_difference_causes_bounded_correction_not_false_completion():
+    node,operation=rtk_bridge();node.rtk_pose['x']=1.7
+    node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)),operation,1)
+    assert operation['correction']==pytest.approx([.3,0.])
+    assert operation['corrections']==1 and operation['target']['x']==2.
+    assert node.mission_manager.waypoints[0]['status']=='ACTIVE'
+
+@pytest.mark.parametrize('offset,retries',[(.8,0),(.3,3)])
+def test_excessive_rtk_correction_or_retry_budget_stops_mission(offset,retries):
+    node,operation=rtk_bridge();node.rtk_pose['x']-=offset;operation['corrections']=retries
+    node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)),operation,1)
+    assert node.mission_manager.state=='FAILED' and not node.dispatched
+
+def test_rtk_loss_during_verification_requests_emergency_stop():
+    node,operation=rtk_bridge();node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)),operation,1)
+    stops=[];node._trigger_estop=stops.append;node._rtk_ready=lambda:False;node._check_arrival()
+    assert stops and not node.dispatched
+
+def test_cancel_during_arrival_verification_finishes_without_waiting_for_an_old_action():
+    node,operation=rtk_bridge();node._goal_result(future(NS(status=GoalStatus.STATUS_SUCCEEDED)),operation,1)
+    node.cmd_vel_pub=NS(publish=lambda msg:None);node._stop_navigation('Cancelled')
+    assert node._active_navigation is None and node.mission_manager.state=='CANCELLED'

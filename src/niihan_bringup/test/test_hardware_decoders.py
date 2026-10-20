@@ -8,7 +8,7 @@ class Publisher:
     def publish(self,message):self.messages.append(message)
 
 def test_nav_pvt_fixed_float_no_fix_and_duplicate_epoch():
-    receiver=SimpleNamespace(last_tow=None,pub=Publisher(),quality=Publisher(),get_clock=lambda:SimpleNamespace(now=lambda:SimpleNamespace(to_msg=lambda:__import__('builtin_interfaces.msg',fromlist=['Time']).Time(sec=1))))
+    receiver=SimpleNamespace(last_tow=None,dop=None,dop_received=0.,simulation_fixture=False,pub=Publisher(),quality=Publisher(),metrics=Publisher(),get_clock=lambda:SimpleNamespace(now=lambda:SimpleNamespace(to_msg=lambda:__import__('builtin_interfaces.msg',fromlist=['Time']).Time(sec=1))))
     payload=bytearray(92)
     struct.pack_into('<I',payload,0,1000);payload[20]=3;payload[21]=1|(2<<6)
     struct.pack_into('<iii',payload,24,775946000,129716000,50000)

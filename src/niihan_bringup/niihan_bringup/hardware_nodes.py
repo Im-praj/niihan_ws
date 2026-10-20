@@ -6,7 +6,7 @@ import json
 import numpy as np
 import serial
 from .common_nodes import spin, parameter
-from .contracts import packet, unpack_packet, sequence_is_newer, UbxParser
+from .contracts import packet, unpack_packet, sequence_is_newer, UbxParser, ubx_checksum, f9p_dop, f9p_metrics, f9p_utc_nanoseconds
 import rclpy
 from rclpy.node import Node
 from rclpy.clock import Clock, ClockType
@@ -102,9 +102,12 @@ class F9pDriver(Node):
     def __init__(self):
         super().__init__('f9p_driver')
         self.port=parameter(self,'port','/dev/niihan-gnss');self.baud=parameter(self,'baud',115200)
-        self.serial=None;self.parser=UbxParser();self.last_attempt=-math.inf;self.last_tow=None
+        self.simulation_fixture=bool(parameter(self,'simulation_fixture',False))
+        if self.simulation_fixture and not self.get_parameter('use_sim_time').value:raise ValueError('F9P fixture requires a simulation clock')
+        self.serial=None;self.parser=UbxParser();self.last_attempt=-math.inf;self.last_tow=None;self.dop=None;self.dop_received=-math.inf
         self.pub=self.create_publisher(NavSatFix,'/niihan/gnss/fix',10)
         self.quality=self.create_publisher(String,'/niihan/gnss/quality',10)
+        self.metrics=self.create_publisher(String,'/niihan/gnss/metrics',10)
         self.create_subscription(UInt8MultiArray,'/niihan/gnss/rtcm',self.corrections,10)
         self.steady=Clock(clock_type=ClockType.STEADY_TIME)
         self.create_timer(.05,self.tick,clock=self.steady)
@@ -131,9 +134,13 @@ class F9pDriver(Node):
                 self.last_attempt=time.monotonic();self.serial=serial.Serial(self.port,self.baud,timeout=0,write_timeout=.05);self.parser=UbxParser();self.last_poll=-math.inf;self.last_tow=None
             if self.serial:
                 if time.monotonic()-self.last_poll>=.2:
-                    self.serial.write(bytes.fromhex("b562010700000819"));self.last_poll=time.monotonic()
+                    for message_id in (7,4):
+                        packet=bytes([1,message_id,0,0]);self.serial.write(b'\xb5\x62'+packet+bytes(ubx_checksum(packet)))
+                    self.last_poll=time.monotonic()
                 for cls,ident,payload in self.parser.feed(self.serial.read(4096)):
-                    if (cls,ident)==(1,7) and len(payload)==92:self.pvt(payload)
+                    if (cls,ident)==(1,4) and len(payload)==18:
+                        self.dop=f9p_dop(payload);self.dop_received=time.monotonic()
+                    elif (cls,ident)==(1,7) and len(payload)==92:self.pvt(payload)
         except (serial.SerialException,OSError) as exc:
             if self.serial:self.serial.close()
             self.serial=None;self.get_logger().warning(f'F9P offline: {exc}',throttle_duration_sec=5)
@@ -150,7 +157,16 @@ class F9pDriver(Node):
         msg.longitude=longitude*1e-7;msg.latitude=latitude*1e-7;msg.altitude=height*.001
         msg.position_covariance=[(horizontal*.001)**2,0.0,0.0,0.0,(horizontal*.001)**2,0.0,0.0,0.0,(vertical*.001)**2];msg.position_covariance_type=2
         carrier=(flags>>6)&3;state='no_fix' if not valid else {0:'standalone',1:'rtk_float',2:'rtk_fixed'}.get(carrier,'unknown')
-        quality=String();quality.data=state;self.quality.publish(quality);self.pub.publish(msg)
+        quality=String();quality.data=state;self.quality.publish(quality)
+        metrics=f9p_metrics(p);metrics['simulation']=self.simulation_fixture
+        utc=f9p_utc_nanoseconds(p) if not self.simulation_fixture else None
+        if utc is not None:
+            msg.header.stamp=rclpy.time.Time(nanoseconds=utc).to_msg()
+        metrics['timestamp_source']='simulation_clock' if self.simulation_fixture else ('receiver_utc' if utc is not None else 'receive_time')
+        metrics.update(stamp=msg.header.stamp.sec+msg.header.stamp.nanosec/1e9,hdop=None,vdop=None)
+        if self.dop and time.monotonic()-self.dop_received<1.0 and min((tow-self.dop['tow'])%604800000,(self.dop['tow']-tow)%604800000)<=1000:
+            metrics.update(hdop=self.dop['hdop'],vdop=self.dop['vdop'])
+        self.pub.publish(msg);self.metrics.publish(String(data=json.dumps(metrics)))
 
     def destroy_node(self):
         if self.serial:self.serial.close()

@@ -29,7 +29,6 @@ coverage.xml
 *.mcap
 *.pcd
 front_cam_bag/
-src/niihan_description/models/construction_site_chunk5/
 .validation/
 
 .pytest_cache/
@@ -42,3 +41,7 @@ src/niihan_description/models/construction_site_chunk5/
 .setup/
 
 .binary/
+
+# Repeat simulation output; frozen published checkpoint evidence is intentional
+scripts/seaport_validation/runs/
+!docs/seaport_validation/results/**/maps/checkpoints/*.npz

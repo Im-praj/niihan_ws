@@ -1,0 +1,168 @@
+{
+  "spawn_world": [
+    -12,
+    0,
+    0.15
+  ],
+  "datum": [
+    13.0827,
+    80.2707,
+    0
+  ],
+  "route_map": [
+    [
+      3,
+      0
+    ],
+    [
+      6,
+      0
+    ],
+    [
+      9,
+      0
+    ]
+  ],
+  "position_tolerance_m": 0.1,
+  "gps_model": "Gazebo NavSat ideal fix; no constellation or RF propagation",
+  "layout_count": 7,
+  "seed": 42,
+  "gps_control": "Nav2 baseline with 0.20 m map goal tolerance followed by bounded GPS and IMU final approach; no GPS fusion",
+  "heading_source": "Gazebo IMU world orientation; sensor mounted with zero rotation",
+  "max_gps_correction_radius_m": 1.0,
+  "max_gps_approach_speed_m_s": 0.08,
+  "max_gps_approach_yaw_rate_rad_s": 0.5,
+  "min_scan_clearance_m": 0.75,
+  "cliff_detector": false,
+  "mapper_3d": true,
+  "fresh_map_per_world": true,
+  "synthetic_sky_markers": 12,
+  "gps_fusion": false,
+  "workspace_revision": "c2835df936637cbb47ee7b63df125e5eb4611a08",
+  "source_sha256": {
+    "launch/niihan_gazebo.launch.py": "b9856d707295ed0794eca5d54a92c18ede1ebf1842a9c9c85186619efa6123f2",
+    "config/nav2_params.yaml": "0b9054b5408f8954ad70ab8fc8912117e32d2d849e84cd570b323b6bd13b4490",
+    "config/slam_toolbox_params.yaml": "4395f98ee89ec023321fcfd6f63e9c3437af55920e6b9ebd461ef205170fc1e9",
+    "urdf/niihan.urdf.xacro": "3354744a83b468d27b5b404479086f6b67ca534cea91066819759c1b43701ded",
+    "urdf/niihan_sensors_chassis.xacro": "b59aaa2a083d6889be62517575d360fd7679a814f1a729be454dfbd9a942e0d7"
+  },
+  "installed_description_sha256": {
+    "launch/niihan_gazebo.launch.py": "b9856d707295ed0794eca5d54a92c18ede1ebf1842a9c9c85186619efa6123f2",
+    "config/nav2_params.yaml": "0b9054b5408f8954ad70ab8fc8912117e32d2d849e84cd570b323b6bd13b4490",
+    "config/slam_toolbox_params.yaml": "4395f98ee89ec023321fcfd6f63e9c3437af55920e6b9ebd461ef205170fc1e9",
+    "urdf/niihan.urdf.xacro": "3354744a83b468d27b5b404479086f6b67ca534cea91066819759c1b43701ded",
+    "urdf/niihan_sensors_chassis.xacro": "b59aaa2a083d6889be62517575d360fd7679a814f1a729be454dfbd9a942e0d7"
+  },
+  "installed_python_sha256": {
+    "niihan_description/share/niihan_description/launch/niihan_description.launch.py": "9c6a053d2309682922f64aedd0d75c068e047688d6a8e035fd04343100eba07c",
+    "niihan_description/share/niihan_description/launch/niihan_mapping.launch.py": "8a7ddae0d1dc86729558b23b5577a2bebfe714f7ce34159d8114ee688f570586",
+    "niihan_description/share/niihan_description/launch/niihan_gazebo.launch.py": "b9856d707295ed0794eca5d54a92c18ede1ebf1842a9c9c85186619efa6123f2",
+    "niihan_description/share/niihan_description/launch/niihan_navigation.launch.py": "335080e50c9e5657f50fa8183b166bfc87da062a3557ab984b596a8478cf75f9",
+    "niihan_description/share/niihan_description/launch/mapping.launch.py": "44feef55f3c38f408a063d845f13ab9bdd9d1fd8f5500a409de6051084160440",
+    "niihan_description/share/niihan_description/launch/niihan_full_system.launch.py": "c2fdaf8046668e2171929d665736754045cad82b04d982d8227afa7cdf6be7a0",
+    "niihan_description/share/niihan_description/launch/gazebo.launch.py": "0488ff3ca0b81cfe93e4b92c9d8e60195030b61a0915464e548912a2c923d11f",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/command_arbiter.py": "3c1b501956f55f8d91f3a63ae729ff4e69dc8edf6b4762907bf1594c725b6694",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/point_cloud_utils.py": "d70e2f30b5436b747809f8aae49a69abfea554e60d12d350bb820a38b2ffaa6f",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/patrol_controller.py": "6a07f967ac1bec2780f267cc9141b66b6fd1dd21a5d75cc5b998182165e9d5c6",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/vortex_3d_mapper.py": "35f9b73f967add4ae6dd870add674b6f5684210ee617cc67413520040cea41e2",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/cliff_detector.py": "6f2058279098d049a51768df89bb82eaa854eb091ac26d4beb601a2d4e8d9ccd",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/set_patrol_points.py": "e95c6e1b2acd91c6a22960e42d26f6e7ccc2272ba2cbbf80abacdfd3cb20d095",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/differential_drive_controller.py": "c029c419f5089d9081e3b4617d7c6667a20f316dcf1c5886d6b2bc3faba66258",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/teleop_mapping_keyboard.py": "3833f89b76fb9787d0c3e4c84c0ef88c6032e0e8192dd3c8c7d2086cf5efa961",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/scan_tf_gate.py": "8e73323edbf88adaccedb9face948f1b74e21164280e6ec4bddedb76db35e79b",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/teleop_mapping_terminal.py": "c212b430d700d3563ffc478766f383f00ad5ce35cf10e6e32aa7d0965365e8a8",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/differential_drive.py": "84fb973d2548be52fec4d845cf1be9bba0eaa186d4afb2b373dba50e61bea0f0",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/waypoint_patrol.py": "b632ceecd34f8f3920819b3e8bc2ae4e503e45cb7c01eed031d2450a461804e0",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/niihan_description_node.py": "3374d98ddecc84e95e71ee692d5bb6dd377cd7e670f122d6f6035ffdf3a80a19",
+    "niihan_description/lib/python3.10/site-packages/niihan_description/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "niihan_slam/share/niihan_slam/launch/slam_simulation.launch.py": "f67f32876b2a5a891b230494daf1d402425f91474c146135c68f522c34baed6d",
+    "niihan_slam/lib/python3.10/site-packages/niihan_slam/tf_filter.py": "5525a58000a583d1d97a85d7cf05368a9993862e1f98e9f9c81a88c56f4b35d9",
+    "niihan_slam/lib/python3.10/site-packages/niihan_slam/map_store.py": "5e877206f48f5f17cbf97d73e5271034b5afe3ca7602e07397242be0457d1381",
+    "niihan_slam/lib/python3.10/site-packages/niihan_slam/saved_localizer.py": "a9bc29418a2ee68e298c0ff31c54edf6e73f25503f5d0b7728c2774fcc00b358",
+    "niihan_slam/lib/python3.10/site-packages/niihan_slam/map_bridge.py": "e203eac993fe16b4c9ca7a6cbd4ff2627f23bf884dc1da1ae7156010d9392f5a",
+    "niihan_slam/lib/python3.10/site-packages/niihan_slam/grid.py": "9c1921570f176cffdf28e2c5885521122d18f3f5205a6886a89d0c7c1c4735af",
+    "niihan_slam/lib/python3.10/site-packages/niihan_slam/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "niihan_bringup/share/niihan_bringup/launch/niihan_application.launch.py": "0848b67d68dfa465aa509ee7d04bed0b5dfa7fb14474e3dc67aac6a67f21d56a",
+    "niihan_bringup/share/niihan_bringup/launch/niihan_simulation.launch.py": "1ff709a9706ede3bd2bdf2bec5ac0133d63e0e4141e323781e7cf92a1a66b179",
+    "niihan_bringup/share/niihan_bringup/launch/niihan_hardware.launch.py": "60de30ec6fed02bac7b41f49822737862aa56175f24a9f1873b491174a9fde53",
+    "niihan_bringup/lib/python3.10/site-packages/niihan_bringup/gazebo_adapter.py": "292ff83a1c14abd59309f7f30114b95be1b31c20013e39528f2a20d81591bf45",
+    "niihan_bringup/lib/python3.10/site-packages/niihan_bringup/hardware_nodes.py": "ffb30b9030d5c6a096582eadf6e1acab01bbe92cc05c4cf349dc0ffb3295f998",
+    "niihan_bringup/lib/python3.10/site-packages/niihan_bringup/contracts.py": "452d24f87c0f900d26bc3c504ab7e1ed8cd3f751e79178574b2f51db6854b58b",
+    "niihan_bringup/lib/python3.10/site-packages/niihan_bringup/mock_hardware.py": "3934003a9c826a54544cf2af451ef562dc11fabe292a695b6636d07d45540506",
+    "niihan_bringup/lib/python3.10/site-packages/niihan_bringup/rtk_alignment.py": "94087dde9876f0ed21a2fa9de1d4a8c494c83a28c45c7f30b8a086cf4306a343",
+    "niihan_bringup/lib/python3.10/site-packages/niihan_bringup/common_nodes.py": "c85820d13578419e45dcda2ada57ad3fcf9546bde9452724c533171a5c525200",
+    "niihan_bringup/lib/python3.10/site-packages/niihan_bringup/__init__.py": "a195c5a855efc353ad99bea874db56e4f9dd388bc3a17591ecbf4dcd5a1c3b24"
+  },
+  "coarse_waypoint_yaw_rad": [
+    0,
+    0,
+    0
+  ],
+  "source_install_differences": [],
+  "gps_final_approach_forward_only": false,
+  "ros_domain_per_layout": "81 through 87",
+  "gazebo_partition_per_layout": "unique runner PID and layout number",
+  "cleanup": "owned process descendants captured before shutdown and terminated if surviving",
+  "gps_feedback_gains": {
+    "linear_body_forward": 0.5,
+    "angular_body_lateral": 2.0
+  },
+  "validation_controller_sha256": {
+    "probe.py": "9aa93c32efb22eae509f5c209ebddde03fbd27ca0a5a2b96095dee8d0e0e5dbf",
+    "gps_precision.py": "54565bbf341e655c313a028fc39aa9b5d873f08621de01d6e3ea7be09874f87c",
+    "run_suite.py": "97f7696d635409422d79aca82c33113b2da757289d2351b0ef5f57c8f474c4a3",
+    "seaport_3d.launch.py": "8f186735818d0941fde009efd4a3c54333f3557a03304ba4cf661dc101cc6df3"
+  },
+  "mapping_backend": "GLIM CPU 3D LiDAR inertial SLAM",
+  "navigation_map": "2D occupancy projection of GLIM map",
+  "stationary_check": "wheel odometry linear speed and IMU angular rate, plus one second GPS position dwell",
+  "final_acceptance_requires_saved_3d_map": true,
+  "slam_config_sha256": {
+    "config/config_sub_mapping_gpu.json": "ea4f11a4cf4d76d707170695aaf29b68d5f97655c741e4a8d72d3e647abdff1e",
+    "config/slam.rviz": "e81a9f7e0481b6691ea92ed13199ef110a9b10b36da420a1b86f964cd4a0db65",
+    "config/config_sub_mapping_cpu.json": "717f5456a2d0d4207b8a578228d3fdc7cf5a85607b0c2c34fc50fb15bd14c88b",
+    "config/config.json": "4e93ecb817419209a2c2c26ce94591a9abf3086a6e747979d9ce347a779413d2",
+    "config/navigate_to_pose_position.xml": "61d43aa485c22ba4570a16f7fbca9d1297ab055a4d8f842ded9e4aad60e7a5fe",
+    "config/config_global_mapping_gpu.json": "78be43cfc79341ef97cf9decce6456203fbd965ba0c5b064a3ff8bc3568d5739",
+    "config/config_odometry_gpu.json": "8af07819fea8fc7168d92bac65fb1a8d55c6be2c55bd4f5192f69507117eaffb",
+    "config/config_preprocess.json": "a2de1d5ffde25c586160549e361ae158db2aafb7c553785403dfe7b04791d577",
+    "config/config_global_mapping_cpu.json": "1b5dddbb7b3a70161a9b8c77a3459f66df23a52b86b623d92ce186bcf7ab4269",
+    "config/GLIM-LICENSE.txt": "e491c5c12eef41e3a5f673fa0b1942d575fbd1bbd8c4dfa73e4c9d464c4a9ba4",
+    "config/config_sub_mapping_passthrough.json": "6239bdbc5d4e18e909bddc811a70e4a68788feeacee01fd8a750737f6b61a4b4",
+    "config/config_ros.json": "ea50beabe8f1f6f446663017ff2e455662af2d8ca9bfdf6b4bea7a32d4678193",
+    "config/nav2_3d_jazzy.yaml": "f66e01483085fc6503f27f7e9f1d3a6204b3cc6679ed096feeed944525ca3918",
+    "config/nav2_3d.yaml": "82b28d1fdbb35f5ed38004d3ffc4bc16429719de7807410c55609e82f2e69f80",
+    "config/config_viewer.json": "6384299ab6da87eadabc9e4f8f080affe510ca866f61e2bda0eff2543b00c112",
+    "config/config_sensors.json": "a31c50ee1b1b43a7e6892d52454f96781d0ce594e8d7b0d02291358a9562e4d7",
+    "config/config_odometry_cpu.json": "93fffaeff93a28114016cf1630fb85ba7745584755f7ae062d62067441b3e060",
+    "config/config_global_mapping_pose_graph.json": "43edbf28cc5ac78d1928cef05fcfe6cd47e86986fbf74633a752d34acb612d53",
+    "config/config_odometry_ct.json": "bcf68bd9e5d83fed6b44b891fda61dafb58388d1ac6b17a9f0e915d5420ca09d",
+    "config/navigate_to_pose_position_jazzy.xml": "21f1d67dfbd98eff0eb410b0bc1547d1479c0d3afb9731fe3e5fb56679b133a5",
+    "config/config_logging.json": "a7ab34b943f1a2ad32e1082517114b3e15e2ce43dd3466373906ebf0b5e8993a"
+  },
+  "route_world": [
+    [
+      -9,
+      0
+    ],
+    [
+      -6,
+      0
+    ],
+    [
+      -3,
+      0
+    ]
+  ],
+  "route_description": "Straight eastbound through the open central lane; identical geographic targets in all seven cargo layouts",
+  "arrival_error_dimension": "Horizontal XY distance; no altitude or heading accuracy criterion",
+  "world_sha256": {
+    "seaport_07.sdf": "6e84c99e64775f590c00774d61d60cf1fa796c7ed3ee0dc0ad03770b7422e303",
+    "seaport_04.sdf": "61c6563965f3be1014ed80ea9e08f585268515e5a2fbf4f307abd90ad6a228ee",
+    "seaport_06.sdf": "85d8a84afca4f3882a0c5beb06666ea13f9255a29b19a71d73b38ccd38b3ef02",
+    "seaport_02.sdf": "8ac196ceb6884116aa2e3fa62cdaba5d00160070cc8a008b2790bb4229af448b",
+    "seaport_01.sdf": "f22f3ffb8ee132a5e68ad9f8e8416f82604255bacd6eaa2be58ea5b59dce8369",
+    "seaport_03.sdf": "fb2acf110ed44ba10bb7a7936a398a82a8cffe18f3b5631dcde08471c711d22a",
+    "seaport_05.sdf": "fc597ad1eaf6e3b0fbc538574d2066b3b84571b81e283c415d83ed77ff23e4c7"
+  }
+}

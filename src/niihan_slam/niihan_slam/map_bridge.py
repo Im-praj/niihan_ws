@@ -1,5 +1,5 @@
 """Publish base odometry and a conservative flat-site map from estimated 3D poses."""
-import json,math,time,copy
+import json,math,time,copy,uuid
 from pathlib import Path
 import numpy as np
 import rclpy
@@ -13,6 +13,7 @@ from std_srvs.srv import Trigger
 from tf2_ros import Buffer,TransformListener,TransformException,TransformBroadcaster
 from niihan_description.point_cloud_utils import xyz_array
 from .grid import Grid,rotation
+from .map_store import checkpoint,atomic_bytes
 
 class MapBridge(Node):
     def __init__(self):
@@ -20,6 +21,7 @@ class MapBridge(Node):
         def param(n,v):self.declare_parameter(n,v);return self.get_parameter(n).value
         self.directory=Path(param('output_directory','/tmp/niihan_map'))
         self.mapping=param('mapping',True);self.ground=param('ground_z',-.145)
+        self.environment=param('environment_id','');self.loaded_file=param('map_file','');self.last_saved=None;self.save_error=None
         self.ground_initialized=False
         self.grid=Grid(param('resolution',.1));self.points={};self.last=None;self.received=0.;self.gyro=0.;self.cloud_stamp=None
         self.tf=Buffer(node=self);self.listener=TransformListener(self.tf,self)
@@ -34,7 +36,10 @@ class MapBridge(Node):
             self.create_subscription(PointCloud2,'/glim_ros/points',self.cloud,10)
             self.create_subscription(PointCloud2,'/glim_ros/map',self.optimized_map,latched)
         self.create_service(Trigger,'/niihan/slam/save_map',self.save)
+        self.create_subscription(String,'/niihan/trial/status',self.trial,10)
         self.create_timer(1.,self.publish)
+        self.autosave_period=float(param('autosave_period',60.))
+        if self.mapping and self.autosave_period>0:self.create_timer(self.autosave_period,self.autosave)
     def odom(self,msg):
         try:
             tf=self.tf.lookup_transform(msg.child_frame_id,'base_footprint',rclpy.time.Time())
@@ -84,20 +89,36 @@ class MapBridge(Node):
             from niihan_description.vortex_3d_mapper import _make_pointcloud2
             points=np.array(list(self.points.values()),dtype=np.float32)
             self.cloud_pub.publish(_make_pointcloud2(points[::max(1,len(points)//30000)],'map',self.cloud_stamp))
-        status={'backend':'GLIM CPU','mode':'mapping' if self.mapping else 'saved-map localization','odometry_fresh':time.monotonic()-self.received<2.,'map_points':len(self.points),'simulation':True,'projection':'flat-ground; no slope/drop-off certification'}
+        status={'backend':'GLIM CPU','mode':'mapping' if self.mapping else 'saved-map localization','odometry_fresh':time.monotonic()-self.received<2.,'map_points':len(self.points),'simulation':True,'environment_id':self.environment,'map_checkpoint_ready':bool(self.last_saved or self.loaded_file),'save_error':self.save_error,'projection':'flat-ground; no slope/drop-off certification'}
         self.status.publish(String(data=json.dumps(status)))
     def save(self,request,response):
-        if not self.mapping or not self.points:response.success=False;response.message='No estimated map to save';return response
+        if not self.mapping:
+            response.success=bool(self.loaded_file and Path(self.loaded_file).is_file());response.message='Existing map retained' if response.success else 'No saved map';return response
+        if not self.points:response.success=False;response.message='No estimated map to save';return response
         self.directory.mkdir(parents=True,exist_ok=True)
-        np.savez_compressed(self.directory/'map_3d.npz',points=np.array(list(self.points.values())),grid=self.grid.data(),resolution=self.grid.resolution,origin=self.grid.origin,ground_z=self.ground)
+        path=checkpoint(self.directory,points=np.array(list(self.points.values())),grid=self.grid.data(),resolution=self.grid.resolution,origin=self.grid.origin,ground_z=self.ground)
         import yaml
         data=self.grid.data();image=np.full(data.shape,205,dtype=np.uint8);image[data==0]=254;image[data==100]=0
-        with open(self.directory/'map.pgm','wb') as f:f.write(f'P5\n{self.grid.size} {self.grid.size}\n255\n'.encode()+np.flipud(image).tobytes())
+        atomic_bytes(self.directory/'map.pgm',f'P5\n{self.grid.size} {self.grid.size}\n255\n'.encode()+np.flipud(image).tobytes())
         (self.directory/'map.yaml').write_text(yaml.safe_dump({'image':'map.pgm','resolution':self.grid.resolution,'origin':[self.grid.origin,self.grid.origin,0.],'negate':0,'occupied_thresh':.65,'free_thresh':.196}))
-        response.success=True;response.message=str(self.directory);return response
+        self.last_saved=path;self.save_error=None
+        response.success=True;response.message=path;return response
+    def trial(self,msg):
+        try:
+            data=json.loads(msg.data)
+            if data.get('state') not in ('COMPLETED','FAILED','CANCELLED'):return
+            self.autosave()
+            data.update(environment_id=self.environment,map_file=self.last_saved or self.loaded_file,mode='mapping' if self.mapping else 'localization',save_error=self.save_error)
+            atomic_bytes(self.directory/'trials'/(uuid.uuid4().hex+'.json'),json.dumps(data).encode())
+        except (ValueError,OSError) as exc:self.get_logger().error(f'Trial persistence failed: {exc}')
+
+    def autosave(self):
+        if self.mapping and self.points:
+            try:self.save(None,Trigger.Response())
+            except OSError as exc:self.save_error=str(exc);self.get_logger().error(f'Map checkpoint failed: {exc}')
 
 def main():
     rclpy.init();n=MapBridge()
     try:rclpy.spin(n)
     except KeyboardInterrupt:pass
-    finally:n.destroy_node();rclpy.try_shutdown()
+    finally:n.autosave();n.destroy_node();rclpy.try_shutdown()

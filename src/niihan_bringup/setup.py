@@ -15,6 +15,7 @@ setup(name=name,version='0.1.0',packages=find_packages(exclude=['test']),data_fi
        'health_supervisor=niihan_bringup.common_nodes:health_main',
        'motion_gateway=niihan_bringup.common_nodes:motion_main',
        'gnss_monitor=niihan_bringup.common_nodes:gnss_monitor_main',
+       'rtk_alignment=niihan_bringup.rtk_alignment:main',
        'mock_hardware=niihan_bringup.mock_hardware:main',
        'stm32_bridge=niihan_bringup.hardware_nodes:stm32_main',
        'f9p_driver=niihan_bringup.hardware_nodes:f9p_main',

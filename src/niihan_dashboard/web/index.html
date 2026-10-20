@@ -32,7 +32,7 @@
                 <button class="tab-btn active" data-target="view-3d">3D SLAM</button>
                 <button class="tab-btn" data-target="view-2d">2D NAV MAP</button>
             </div>
-            
+
             <div class="view-container active" id="view-3d">
                 <div id="three-canvas-container"></div>
                 <div class="view-overlay">
@@ -69,10 +69,12 @@
                     <div class="tel-item"><span class="tel-label">VEL X:</span> <span id="tel-vel-x" class="tel-val">0.00</span>m/s</div>
                     <div class="tel-item"><span class="tel-label">VEL Z:</span> <span id="tel-vel-z" class="tel-val">0.00</span>r/s</div>
                 </div>
-                
+
                 <div class="section-title" style="margin-top:10px;">HARDWARE &amp; GNSS</div>
                 <div id="tel-health">Waiting for supervisor</div>
+                <div id="tel-map-state">MAP: waiting</div>
                 <div id="tel-gnss">GNSS unavailable</div>
+                <div id="tel-gnss-metrics">GPS LOCK: NO · RTK: NO · SAT: N/A · HDOP: N/A · VDOP: N/A</div>
                 <div class="section-title" style="margin-top:10px;">MANUAL CONTROL</div>
                 <div class="mode-toggles">
                     <button id="btn-mode-manual" class="btn active">MANUAL</button>

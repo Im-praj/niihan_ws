@@ -1,0 +1,148 @@
+{
+  "world": 5,
+  "waypoints": [
+    {
+      "waypoint": 1,
+      "target_map": [
+        3,
+        0
+      ],
+      "target_world": [
+        -9,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -9.291304963629257,
+          -0.019781294357390084
+        ],
+        "map": [
+          2.7486384071194943,
+          -0.019676763627387937
+        ],
+        "gps_base": [
+          -9.291304964896216,
+          -0.019781293669754674
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.29197582338525263,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 55,
+        "min_scan_range_m": 3.3061163425445557,
+        "elapsed_wall_s": 5.586219272999983,
+        "gps_error_m": 0.04829510205240592,
+        "stopped_dwell_sim_s": 1.0539999999999985
+      },
+      "final_truth_error_m": 0.04829509742871702,
+      "final_gps_error_m": 0.04829510205240592,
+      "pass": true
+    },
+    {
+      "waypoint": 2,
+      "target_map": [
+        6,
+        0
+      ],
+      "target_world": [
+        -6,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -6.25270318687556,
+          -0.05119978153871561
+        ],
+        "map": [
+          5.760374035804843,
+          -0.05107376592316256
+        ],
+        "gps_base": [
+          -6.252703191434331,
+          -0.051199780990552585
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.25783777513521233,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 59,
+        "min_scan_range_m": 3.305835247039795,
+        "elapsed_wall_s": 5.997727766999901,
+        "gps_error_m": 0.04756020857522823,
+        "stopped_dwell_sim_s": 1.006999999999998
+      },
+      "final_truth_error_m": 0.04756020349996349,
+      "final_gps_error_m": 0.04756020857522823,
+      "pass": true
+    },
+    {
+      "waypoint": 3,
+      "target_map": [
+        9,
+        0
+      ],
+      "target_world": [
+        -3,
+        0
+      ],
+      "baseline": {
+        "status": 4,
+        "truth": [
+          -3.1935631126543176,
+          -0.05173983200945028
+        ],
+        "map": [
+          8.764003629094315,
+          -0.05199163731428634
+        ],
+        "gps_base": [
+          -3.1935631151554276,
+          -0.0517398316962759
+        ],
+        "gps_fresh": true,
+        "stopped": false
+      },
+      "baseline_truth_error_m": 0.20035889996901604,
+      "gps_approach": {
+        "status": "gps_arrival_verified",
+        "commands": 52,
+        "min_scan_range_m": 3.305551767349243,
+        "elapsed_wall_s": 5.315021205000107,
+        "gps_error_m": 0.04808783796330923,
+        "stopped_dwell_sim_s": 1.0720000000000027
+      },
+      "final_truth_error_m": 0.04808783351203967,
+      "final_gps_error_m": 0.04808783796330923,
+      "pass": true
+    }
+  ],
+  "gps_model": "Ideal Gazebo NavSat, 12 satellite sky fixture; no RF or RTK",
+  "gps_control": "Nav2 coarse navigation then bounded GPS final approach through command arbiter; simulated IMU heading; no GPS fusion",
+  "slam_3d": {
+    "cloud_messages": 74,
+    "last_cloud_points": 36748,
+    "status": {
+      "backend": "GLIM CPU",
+      "mode": "mapping",
+      "odometry_fresh": true,
+      "map_points": 36748,
+      "simulation": true,
+      "environment_id": "seaport_05",
+      "map_checkpoint_ready": true,
+      "save_error": null,
+      "projection": "flat-ground; no slope/drop-off certification"
+    },
+    "map_save": {
+      "success": true,
+      "message": "/home/praj/Documents/Codex/2026-10-20/in/outputs/seaport/results/world_05/maps/checkpoints/20261020-222644-04eee588.npz"
+    }
+  },
+  "elapsed_wall_s": 82.06604296600005,
+  "pass": true
+}

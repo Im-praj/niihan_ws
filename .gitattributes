@@ -1,1 +1,2 @@
 patches/*.patch whitespace=-blank-at-eol
+src/niihan_description/models/niihan_environment/meshes/construction_site_m1.glb filter=lfs diff=lfs merge=lfs -text

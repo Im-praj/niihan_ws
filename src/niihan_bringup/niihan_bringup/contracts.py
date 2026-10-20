@@ -129,3 +129,39 @@ def level_points(points, quaternion):
     yaw=math.atan2(2*(w*z+x*y),1-2*(y*y+z*z));c,s=math.cos(yaw),math.sin(yaw)
     yaw_rotation=np.array([[c,-s,0],[s,c,0],[0,0,1]])
     return np.asarray(points) @ rotation.T @ yaw_rotation
+
+
+def f9p_dop(payload):
+    """UBX-NAV-DOP, F9 HPG interface: VDOP/HDOP are 0.01 units."""
+    import struct
+    if len(payload)!=18: raise ValueError('NAV-DOP payload length')
+    tow=struct.unpack_from('<I',payload)[0]
+    if tow>=604800000: raise ValueError('NAV-DOP epoch')
+    vertical,horizontal=struct.unpack_from('<HH',payload,10)
+    return {'tow':tow,'hdop':horizontal*.01 if horizontal else None,
+            'vdop':vertical*.01 if vertical else None}
+
+def f9p_metrics(payload):
+    import struct
+    if len(payload)!=92: raise ValueError('NAV-PVT payload length')
+    valid=bool(payload[21]&1) and payload[20] in (3,4)
+    quality='no_fix' if not valid else {0:'standalone',1:'rtk_float',2:'rtk_fixed'}.get((payload[21]>>6)&3,'unknown')
+    horizontal,vertical=struct.unpack_from('<II',payload,40)
+    return {'satellite_count':payload[23],'lock':valid,'rtk_lock':quality=='rtk_fixed',
+            'quality':quality,'horizontal_accuracy_m':horizontal*.001,
+            'vertical_accuracy_m':vertical*.001,'simulation':False}
+
+
+def f9p_utc_nanoseconds(payload):
+    """Resolved UBX UTC epoch, preventing old serial data looking newly acquired."""
+    import struct
+    from datetime import datetime,timezone
+    if len(payload)!=92 or payload[11]&7!=7:return None
+    try:
+        year=struct.unpack_from('<H',payload,4)[0]
+        if not 1980<=year<=2100:return None
+        epoch=datetime(year,*payload[6:11],tzinfo=timezone.utc)
+        nano=struct.unpack_from('<i',payload,16)[0]
+        if abs(nano)>1000000000:return None
+        return int(epoch.timestamp())*1000000000+nano
+    except ValueError:return None

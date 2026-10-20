@@ -1,0 +1,72 @@
+[
+  {
+    "world": 1,
+    "checkpoint": "/home/praj/Documents/Codex/2026-10-20/in/outputs/seaport/results/world_01/maps/checkpoints/20261020-222004-bd9ff848.npz",
+    "points": 37227,
+    "finite_points": true,
+    "grid_shape": [
+      600,
+      600
+    ]
+  },
+  {
+    "world": 2,
+    "checkpoint": "/home/praj/Documents/Codex/2026-10-20/in/outputs/seaport/results/world_02/maps/checkpoints/20261020-222139-c485df6a.npz",
+    "points": 36789,
+    "finite_points": true,
+    "grid_shape": [
+      600,
+      600
+    ]
+  },
+  {
+    "world": 3,
+    "checkpoint": "/home/praj/Documents/Codex/2026-10-20/in/outputs/seaport/results/world_03/maps/checkpoints/20261020-222317-21055855.npz",
+    "points": 38256,
+    "finite_points": true,
+    "grid_shape": [
+      600,
+      600
+    ]
+  },
+  {
+    "world": 4,
+    "checkpoint": "/home/praj/Documents/Codex/2026-10-20/in/outputs/seaport/results/world_04/maps/checkpoints/20261020-222456-90fdcb58.npz",
+    "points": 37485,
+    "finite_points": true,
+    "grid_shape": [
+      600,
+      600
+    ]
+  },
+  {
+    "world": 5,
+    "checkpoint": "/home/praj/Documents/Codex/2026-10-20/in/outputs/seaport/results/world_05/maps/checkpoints/20261020-222644-04eee588.npz",
+    "points": 36750,
+    "finite_points": true,
+    "grid_shape": [
+      600,
+      600
+    ]
+  },
+  {
+    "world": 6,
+    "checkpoint": "/home/praj/Documents/Codex/2026-10-20/in/outputs/seaport/results/world_06/maps/checkpoints/20261020-222827-dcbc339e.npz",
+    "points": 35875,
+    "finite_points": true,
+    "grid_shape": [
+      600,
+      600
+    ]
+  },
+  {
+    "world": 7,
+    "checkpoint": "/home/praj/Documents/Codex/2026-10-20/in/outputs/seaport/results/world_07/maps/checkpoints/20261020-223007-cba8f42a.npz",
+    "points": 36271,
+    "finite_points": true,
+    "grid_shape": [
+      600,
+      600
+    ]
+  }
+]

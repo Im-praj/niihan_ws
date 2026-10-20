@@ -49,7 +49,8 @@ async def run():
         async def send(action,**kw):d={'action':action,**kw};log({'kind':'sent','data':d});await w.send(json.dumps(d));await asyncio.sleep(.4)
         deadline=time.monotonic()+60
         while time.monotonic()<deadline:
-            if tele.get('pose_valid') and tele.get('nav2_ready') and tele.get('hardware_health',{}).get('ready'):break
+            gps=tele.get('gnss',{});gp=gps.get('map_pose',{});rtk_ready=not gps.get('goal_verification_required') or (gps.get('rtk_lock') and -.05<=tele.get('timestamp',0)-gp.get('stamp',-1e9)<=.5)
+            if tele.get('pose_valid') and tele.get('nav2_ready') and tele.get('hardware_health',{}).get('ready') and rtk_ready:break
             await asyncio.sleep(.2)
         if not (tele.get('pose_valid') and tele.get('nav2_ready') and tele.get('hardware_health',{}).get('ready')):raise RuntimeError('Fresh localization, healthy sensors and active Nav2 did not become ready')
         log({'kind':'phase','name':'three_waypoint_route'})

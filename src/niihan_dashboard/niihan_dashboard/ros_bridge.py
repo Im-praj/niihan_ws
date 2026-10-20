@@ -21,6 +21,7 @@ from nav2_msgs.action import NavigateToPose
 from nav2_msgs.msg import CostmapFilterInfo
 from action_msgs.msg import GoalStatus
 from lifecycle_msgs.srv import GetState
+from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformListener, TransformException
 from cv_bridge import CvBridge
 
@@ -52,6 +53,7 @@ class ROSBridgeNode(Node):
                             ('pose_max_age', 1.0), ('pose_future_tolerance', 0.1),
                             ('pose_freeze_timeout', 3.0), ('require_health', False), ('slam_cloud_topic', '/vortex/point_cloud_map'),
                             ('goal_verify_position_tolerance', 0.25),
+                            ('arrival_dwell_seconds',1.0),('rtk_goal_verification',False),('rtk_goal_tolerance',0.10),
                             ('geofence_margin', 0.45)):
             self.declare_parameter(name, value)
         self.global_frame = self.get_parameter('global_frame').value
@@ -61,6 +63,16 @@ class ROSBridgeNode(Node):
         self.pose_freeze_timeout = float(self.get_parameter('pose_freeze_timeout').value)
         self.pose_future_tolerance = float(self.get_parameter('pose_future_tolerance').value)
         self.goal_verify_position_tolerance = float(self.get_parameter('goal_verify_position_tolerance').value)
+        self.arrival_dwell_seconds=float(self.get_parameter('arrival_dwell_seconds').value)
+        self.rtk_goal_verification=bool(self.get_parameter('rtk_goal_verification').value)
+        self.rtk_goal_tolerance=float(self.get_parameter('rtk_goal_tolerance').value)
+        if not math.isfinite(self.arrival_dwell_seconds) or self.arrival_dwell_seconds<=0:raise ValueError('Arrival dwell must be positive')
+        if self.rtk_goal_verification and (self.arrival_dwell_seconds<1. or not 0<self.rtk_goal_tolerance<=.10):raise ValueError('RTK verification requires at least 1 second and at most 0.10 m tolerance')
+        self.rtk_pose=None;self.rtk_received=-math.inf
+        self.rtk_wall_timeout=2.0 if self.get_parameter('use_sim_time').value else .5
+        self.create_subscription(Odometry,'/niihan/gnss/map_pose',self.rtk_pose_callback,10)
+        self.map_save=self.create_client(Trigger,'/niihan/slam/save_map')
+        self.trial_status=self.create_publisher(String,'/niihan/trial/status',10)
         self.geofence_margin = float(self.get_parameter('geofence_margin').value)
         self.geofence_manager = GeofenceManager()
         self.safety_manager = SafetyManager(geofence_manager=self.geofence_manager)
@@ -103,10 +115,12 @@ class ROSBridgeNode(Node):
         self.keepout_pub = self.create_publisher(OccupancyGrid, '/niihan/geofence_mask', latched)
         self.filter_info_pub = self.create_publisher(CostmapFilterInfo, '/niihan/geofence_filter_info', latched)
         self.create_subscription(Odometry, '/odom', self.odom_callback, qos_profile_sensor_data)
-        self.telemetry['gnss'] = {'available': False, 'quality': 'unknown'}
+        self.telemetry['gnss'] = {'available': False, 'quality': 'unknown', 'satellite_count':None, 'hdop':None, 'vdop':None, 'lock':False, 'rtk_lock':False,'goal_verification_required':self.rtk_goal_verification}
+        self.gnss_metrics_received=-math.inf;self.gnss_fix_received=-math.inf
         self.telemetry['hardware_health'] = {'ready': False, 'faults': ['waiting_for_supervisor']}
         self.create_subscription(NavSatFix, '/niihan/gnss/fix', self.gnss_callback, qos_profile_sensor_data)
         self.create_subscription(String, '/niihan/gnss/quality', self.gnss_quality_callback, 10)
+        self.create_subscription(String, '/niihan/gnss/metrics', self.gnss_metrics_callback, 10)
         self.create_subscription(String, '/niihan/health', self.hardware_health_callback, 10)
         self._health_received = 0.0
         self.telemetry['slam'] = {'backend': 'unknown'}
@@ -252,10 +266,42 @@ class ROSBridgeNode(Node):
 
     @synchronized
     def gnss_callback(self, msg):
+        self.gnss_fix_received=time.monotonic()
         valid = msg.status.status >= 0 and all(math.isfinite(value) for value in (msg.latitude, msg.longitude, msg.altitude))
         self.telemetry['gnss'].update(available=valid, latitude=msg.latitude if valid else None,
                                       longitude=msg.longitude if valid else None, altitude=msg.altitude if valid else None,
                                       covariance=list(msg.position_covariance), stamp=msg.header.stamp.sec+msg.header.stamp.nanosec/1e9)
+
+    @synchronized
+    def rtk_pose_callback(self,msg):
+        if msg.header.frame_id!=self.global_frame:return
+        p=msg.pose.pose.position
+        cov=np.asarray(msg.pose.covariance).reshape(6,6)[:3,:3]
+        if not all(math.isfinite(v) for v in (p.x,p.y,p.z)) or not np.isfinite(cov).all():return
+        if np.linalg.eigvalsh((cov+cov.T)/2).min()<0 or not 0<max(cov[0,0],cov[1,1])<=.05**2 or not 0<cov[2,2]<=.10**2:return
+        self.rtk_pose={'x':p.x,'y':p.y,'z':p.z,'stamp':msg.header.stamp.sec+msg.header.stamp.nanosec/1e9}
+        self.rtk_received=time.monotonic()
+        self.telemetry['gnss']['map_pose']=self.rtk_pose.copy()
+        if self._active_navigation and self._active_navigation.get('target'):
+            target=self._active_navigation['target']
+            self.navigation.update(xyz_error_m=math.dist([self.rtk_pose[a] for a in ('x','y','z')],[target[a] for a in ('x','y','z')]),verification_source='RTK')
+
+    def _rtk_ready(self):
+        pose=getattr(self,'rtk_pose',None)
+        if pose is None:return False
+        if self.telemetry.get('gnss',{}).get('rtk_lock') is not True or time.monotonic()-self.gnss_metrics_received>1.:return False
+        age=self.get_clock().now().nanoseconds/1e9-pose['stamp']
+        return time.monotonic()-self.rtk_received<self.rtk_wall_timeout and -.05<=age<=.5
+
+    @synchronized
+    def gnss_metrics_callback(self,msg):
+        try:
+            data=json.loads(msg.data)
+            if not isinstance(data,dict):return
+            allowed=('satellite_count','hdop','vdop','lock','rtk_lock','quality','horizontal_accuracy_m','vertical_accuracy_m','simulation','timestamp_source','stamp')
+            self.telemetry['gnss'].update({k:data[k] for k in allowed if k in data})
+            self.gnss_metrics_received=time.monotonic()
+        except (ValueError,TypeError):return
 
     @synchronized
     def gnss_quality_callback(self, msg):
@@ -367,7 +413,7 @@ class ROSBridgeNode(Node):
                 except Exception as exc:
                     self.get_logger().error(f'Could not send action cancellation: {exc}')
             self.navigation.update(state='FAILED' if failed else 'CANCELLED', message=message)
-            if was_paused:
+            if was_paused or operation.get('arrival_pending'):
                 self._finish_navigation(operation, 'FAILED' if failed else 'CANCELLED', message)
         self.cmd_vel_pub.publish(Twist())
 
@@ -379,8 +425,16 @@ class ROSBridgeNode(Node):
 
     @synchronized
     def safety_loop(self):
+        gnss=self.telemetry['gnss'];now=time.monotonic()
+        gnss['fresh']=now-self.gnss_fix_received<1.0 and now-self.gnss_metrics_received<1.0
+        stamp=gnss.get('stamp')
+        if not isinstance(stamp,(int,float)) or not -.05<=self.get_clock().now().nanoseconds/1e9-stamp<=1.:gnss['fresh']=False
+        if not gnss['fresh']:
+            gnss.update(lock=False,rtk_lock=False,hdop=None,vdop=None,satellite_count=None)
         valid = self._update_pose_from_tf()
         pose = self.telemetry['pose']
+        if getattr(self,'rtk_goal_verification',False) and self._active_navigation and not self._rtk_ready():
+            self._trigger_estop('Fresh, calibrated RTK-fixed position lost; navigation stopped.')
         if not self.safety_manager.estop_active:
             if not valid and (self._active_navigation is not None or
                               (self.geofence_manager.enabled and self.safety_manager.can_move())):
@@ -391,6 +445,7 @@ class ROSBridgeNode(Node):
             self.cmd_vel_pub.publish(Twist())
         elif self.safety_manager.mode == 'MANUAL' and not self.safety_manager.can_move():
             self.cmd_vel_pub.publish(Twist())
+        self._check_arrival()
 
     @staticmethod
     def _response(action, success, message):
@@ -497,6 +552,8 @@ class ROSBridgeNode(Node):
         return self._response(action, True, action.replace('_', ' ').capitalize() + ' applied.')
 
     def _can_start_navigation(self, targets, resuming=False):
+        if getattr(self,'rtk_goal_verification',False) and not self._rtk_ready():
+            return False, 'Fresh calibrated RTK-fixed position is required.'
         if not self.safety_manager.validate_auto_command():
             return False, 'Navigation requires AUTO mode and a cleared e-stop.'
         if self._active_navigation is not None and not resuming:
@@ -572,14 +629,15 @@ class ROSBridgeNode(Node):
         goal.pose.header.frame_id = self.global_frame
         # Targets are fixed coordinates in the global frame. A zero stamp avoids
         # pinning long missions to a historical TF sample that leaves the cache.
-        goal.pose.pose.position.x = target['x']
-        goal.pose.pose.position.y = target['y']
+        correction=operation.get('correction',(0.,0.))
+        goal.pose.pose.position.x = target['x']+correction[0]
+        goal.pose.pose.position.y = target['y']+correction[1]
         goal.pose.pose.position.z = target['z']
         goal.pose.pose.orientation.z = math.sin(target['yaw'] / 2.0)
         goal.pose.pose.orientation.w = math.cos(target['yaw'] / 2.0)
         self._next_request_id += 1
         request_id = self._next_request_id
-        operation.update(request_id=request_id, target=target, handle=None, cancel_sent=False)
+        operation.update(request_id=request_id, target=target, handle=None, cancel_sent=False,arrival_pending=False)
         self.navigation.update(state='PENDING', message='Waiting for Nav2 goal acceptance.', target=target)
         try:
             future = self.nav_to_pose_client.send_goal_async(goal)
@@ -646,24 +704,62 @@ class ROSBridgeNode(Node):
             self._trigger_estop('Nav2 reported success without fresh localization; arrival cannot be confirmed.')
             self._finish_navigation(operation, 'FAILED', 'Arrival cannot be confirmed: localization is stale.')
             return
-        pose = self.telemetry['pose']
-        distance = math.dist([pose[axis] for axis in ('x', 'y', 'z')],
-                             [target[axis] for axis in ('x', 'y', 'z')])
-        if distance > self.goal_verify_position_tolerance:
-            self._finish_navigation(operation, 'FAILED',
-                                    f'Nav2 reported success away from target ({distance:.2f} m XYZ error); mission stopped.')
+        use_rtk=getattr(self,'rtk_goal_verification',False)
+        if use_rtk and not self._rtk_ready():
+            self._trigger_estop('RTK position unavailable at arrival.')
+            self._finish_navigation(operation,'FAILED','RTK arrival could not be verified.')
             return
-        if operation['kind'] == 'mission':
-            index = operation['index']
-            self.mission_manager.waypoints[index]['status'] = 'COMPLETED'
-            if index + 1 < len(operation['targets']):
-                operation['index'] += 1
-                self.mission_manager.current_waypoint_index = operation['index']
-                self.mission_manager.waypoints[operation['index']]['status'] = 'ACTIVE'
-                self.mission_manager.message = f"Navigating to waypoint {operation['index'] + 1}."
-                self._dispatch_target(operation)
-                return
-        self._finish_navigation(operation, 'COMPLETED', 'Target reached and map-frame pose verified.')
+        pose=self.rtk_pose if use_rtk else self.telemetry['pose']
+        tolerance=self.rtk_goal_tolerance if use_rtk else self.goal_verify_position_tolerance
+        distance=math.dist([pose[a] for a in ('x','y','z')],[target[a] for a in ('x','y','z')])
+        if distance>tolerance:
+            if use_rtk and operation.get('corrections',0)<3:
+                delta=[self.telemetry['pose'][a]-pose[a] for a in ('x','y')]
+                corrected=dict(target,x=target['x']+delta[0],y=target['y']+delta[1])
+                allowed,_=self.geofence_manager.is_valid_mission([corrected],self.telemetry['pose'],self.geofence_margin)
+                if allowed and math.hypot(*delta)<=.5 and abs(target['z']-pose['z'])<=tolerance:
+                    operation.update(correction=delta,corrections=operation.get('corrections',0)+1)
+                    self.navigation.update(state='CORRECTING',message=f'RTK XYZ error {distance:.3f} m; bounded goal correction.')
+                    self._dispatch_target(operation);return
+            self._finish_navigation(operation,'FAILED',f'Arrival outside tolerance ({distance:.3f} m XYZ error); mission stopped.')
+            return
+        if getattr(self,'arrival_dwell_seconds',0)>0:
+            operation.update(arrival_pending=True,arrival_started=None,arrival_stamps=set(),arrival_deadline=time.monotonic()+10.,handle=None)
+            self.navigation.update(state='VERIFYING',message='Confirming stopped position with fresh measurements.')
+            return
+        self._complete_arrival(operation)
+
+    def _check_arrival(self):
+        operation=self._active_navigation
+        if not operation or not operation.get('arrival_pending') or operation.get('cancelling'):return
+        now=time.monotonic();target=operation['target']
+        if now>operation['arrival_deadline']:
+            self._finish_navigation(operation,'FAILED','Stopped arrival did not remain within tolerance.');return
+        use_rtk=getattr(self,'rtk_goal_verification',False)
+        if use_rtk and not self._rtk_ready():self._trigger_estop('RTK lost during arrival verification.');return
+        pose=self.rtk_pose if use_rtk else self.telemetry['pose']
+        tolerance=self.rtk_goal_tolerance if use_rtk else self.goal_verify_position_tolerance
+        error=math.dist([pose[a] for a in ('x','y','z')],[target[a] for a in ('x','y','z')])
+        velocity=self.telemetry.get('velocity',{})
+        stopped=abs(velocity.get('linear_x',math.inf))<=.05 and abs(velocity.get('angular_z',math.inf))<=.05
+        self.navigation.update(xyz_error_m=error,verification_source='RTK' if use_rtk else 'SLAM TF')
+        if not stopped or error>tolerance:
+            operation['arrival_started']=None;operation['arrival_stamps'].clear();return
+        if operation['arrival_started'] is None:operation['arrival_started']=now
+        operation['arrival_stamps'].add(pose['stamp'] if use_rtk else self._last_tf_stamp)
+        if now-operation['arrival_started']>=self.arrival_dwell_seconds and len(operation['arrival_stamps'])>=3:
+            operation['arrival_pending']=False;self._complete_arrival(operation)
+
+    def _complete_arrival(self,operation):
+        operation.pop('correction',None);operation.pop('corrections',None)
+        if operation['kind']=='mission':
+            index=operation['index'];self.mission_manager.waypoints[index]['status']='COMPLETED'
+            if index+1<len(operation['targets']):
+                operation['index']+=1;self.mission_manager.current_waypoint_index=operation['index']
+                self.mission_manager.waypoints[operation['index']]['status']='ACTIVE'
+                self.mission_manager.message=f"Navigating to waypoint {operation['index']+1}."
+                self._dispatch_target(operation);return
+        self._finish_navigation(operation,'COMPLETED','Target reached; fresh XYZ position verified.')
 
     def _finish_navigation(self, operation, state, message):
         if self._active_navigation is not operation:
@@ -674,6 +770,10 @@ class ROSBridgeNode(Node):
             wp = self.mission_manager.waypoints[operation['index']]
             if state != 'COMPLETED' and wp['status'] != 'COMPLETED':
                 wp['status'] = state
+        if hasattr(self,'trial_status'):
+            self.trial_status.publish(String(data=json.dumps({'state':state,'message':message,'wall_time':time.time(),'pose':self.telemetry['pose'],'target':operation.get('target')})))
+        if hasattr(self,'map_save') and self.map_save.service_is_ready():
+            self.map_save.call_async(Trigger.Request())
         self.navigation.update(state=state, message=message)
         self._active_navigation = None
         self.get_logger().info(message)

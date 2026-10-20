@@ -1,4 +1,5 @@
 """Gazebo drive and quality adapters for common hardware contracts."""
+import json
 from .common_nodes import spin
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
@@ -17,9 +18,12 @@ class GazeboDrive(Node):
         self.create_subscription(PointCloud2,'/niihan/sensors/unitree_lidar/points',self.lidar,qos_profile_sensor_data)
         self.health=self.create_publisher(Bool,'/niihan/drive/healthy',10)
         self.create_subscription(Odometry,'/niihan/wheel/odom',self.odom,10)
-        self.quality=self.create_publisher(String,'/niihan/gnss/quality',10)
-        self.gnss=self.create_publisher(NavSatFix,'/niihan/gnss/fix',qos_profile_sensor_data)
-        self.create_subscription(NavSatFix,'/niihan/raw/gnss/fix',self.fix,qos_profile_sensor_data)
+        self.declare_parameter('relay_gnss',True)
+        if self.get_parameter('relay_gnss').value:
+            self.quality=self.create_publisher(String,'/niihan/gnss/quality',10)
+            self.metrics=self.create_publisher(String,'/niihan/gnss/metrics',10)
+            self.gnss=self.create_publisher(NavSatFix,'/niihan/gnss/fix',qos_profile_sensor_data)
+            self.create_subscription(NavSatFix,'/niihan/raw/gnss/fix',self.fix,qos_profile_sensor_data)
 
     def lidar(self,msg):
         # Gazebo sensor scoped names are not URDF TF frame IDs.
@@ -36,6 +40,7 @@ class GazeboDrive(Node):
         self.gnss.publish(msg)
         # Gazebo has no RTK carrier-solution state; never label its NavSatFix as RTK fixed.
         quality=String();quality.data='simulated_fix' if msg.status.status>=0 else 'no_fix';self.quality.publish(quality)
+        self.metrics.publish(String(data=json.dumps({'quality':quality.data,'lock':msg.status.status>=0,'rtk_lock':False,'satellite_count':None,'hdop':None,'vdop':None,'simulation':True,'stamp':msg.header.stamp.sec+msg.header.stamp.nanosec/1e9})))
 
 
 def main(args=None):spin(GazeboDrive,args)

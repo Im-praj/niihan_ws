@@ -26,9 +26,9 @@
   <joint name="gnss_joint" type="fixed">
     <parent link="mast_head_link"/>
     <child link="gnss_link"/>
-    <origin xyz="0 0 0.06" rpy="0 0 0"/>
+    <origin xyz="$(arg gnss_mount_x) $(arg gnss_mount_y) $(arg gnss_mount_z)" rpy="0 0 0"/>
   </joint>
-  <xacro:unless value="$(arg minimal_sensors)">
+  <!-- Antenna is present in the minimal L2 + single-camera profile too. -->
 <gazebo reference="gnss_link">
     <sensor name="gnss_sensor" type="navsat">
       <always_on>true</always_on>
@@ -37,7 +37,6 @@
       <gz:frame_id>gnss_link</gz:frame_id>
     </sensor>
   </gazebo>
-</xacro:unless>
 
   <!-- 2D LiDAR: publishes sensor_msgs/LaserScan on /scan for navigation/obstacle detection -->
   <link name="chassis_lidar_link">

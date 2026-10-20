@@ -1,0 +1,90 @@
+{
+  "all_passed": true,
+  "frozen_controller_hashes_match": true,
+  "worlds": [
+    {
+      "world": 1,
+      "route_passed": true,
+      "same_targets": true,
+      "all_nav2_success": true,
+      "all_arrivals_within_10cm": true,
+      "all_stopped_dwell_at_least_1s": true,
+      "commands_bounded": true,
+      "scan_clearance_maintained": true,
+      "saved_glim_map_valid": true,
+      "saved_points": 37227
+    },
+    {
+      "world": 2,
+      "route_passed": true,
+      "same_targets": true,
+      "all_nav2_success": true,
+      "all_arrivals_within_10cm": true,
+      "all_stopped_dwell_at_least_1s": true,
+      "commands_bounded": true,
+      "scan_clearance_maintained": true,
+      "saved_glim_map_valid": true,
+      "saved_points": 36789
+    },
+    {
+      "world": 3,
+      "route_passed": true,
+      "same_targets": true,
+      "all_nav2_success": true,
+      "all_arrivals_within_10cm": true,
+      "all_stopped_dwell_at_least_1s": true,
+      "commands_bounded": true,
+      "scan_clearance_maintained": true,
+      "saved_glim_map_valid": true,
+      "saved_points": 38256
+    },
+    {
+      "world": 4,
+      "route_passed": true,
+      "same_targets": true,
+      "all_nav2_success": true,
+      "all_arrivals_within_10cm": true,
+      "all_stopped_dwell_at_least_1s": true,
+      "commands_bounded": true,
+      "scan_clearance_maintained": true,
+      "saved_glim_map_valid": true,
+      "saved_points": 37485
+    },
+    {
+      "world": 5,
+      "route_passed": true,
+      "same_targets": true,
+      "all_nav2_success": true,
+      "all_arrivals_within_10cm": true,
+      "all_stopped_dwell_at_least_1s": true,
+      "commands_bounded": true,
+      "scan_clearance_maintained": true,
+      "saved_glim_map_valid": true,
+      "saved_points": 36750
+    },
+    {
+      "world": 6,
+      "route_passed": true,
+      "same_targets": true,
+      "all_nav2_success": true,
+      "all_arrivals_within_10cm": true,
+      "all_stopped_dwell_at_least_1s": true,
+      "commands_bounded": true,
+      "scan_clearance_maintained": true,
+      "saved_glim_map_valid": true,
+      "saved_points": 35875
+    },
+    {
+      "world": 7,
+      "route_passed": true,
+      "same_targets": true,
+      "all_nav2_success": true,
+      "all_arrivals_within_10cm": true,
+      "all_stopped_dwell_at_least_1s": true,
+      "commands_bounded": true,
+      "scan_clearance_maintained": true,
+      "saved_glim_map_valid": true,
+      "saved_points": 36271
+    }
+  ]
+}
