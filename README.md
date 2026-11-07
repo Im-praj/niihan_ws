@@ -195,3 +195,9 @@ Environment-scoped map checkpoints are validated by checksum before reuse. GNSS 
 ## External dependencies
 
 See [dependency sources and revisions](docs/DEPENDENCIES.md) for upstream URLs, pinned commits, clone instructions, local patches and asset handling. Recursive clone obtains the upstream libraries; source setup also builds pinned GTSAM/gtsam_points. Do not copy build/install directories between machines. Preserve upstream and vendored browser licenses.
+
+## Three lane seaport world
+
+The default SLAM simulation now opens `seaport_three_lane.sdf`: three parallel 4.4 m clear lanes at north coordinates -10, 0 and 10 m, with 24 containers in four rows. Containers use five colours (red, blue, green, yellow, orange) and unique 001–024 number tags on both long sides and the roof. Quay, warehouse, ship, gantry crane, fenders, bollards and floodlight poles complete the port. All visuals and number tags are SDF geometry; no font or external asset download is required.
+
+Rebuild `niihan_description` and source the overlay, then run `./run.sh`. The default environment ID is `seaport-three-lane`, so an older portable-site map is not reused. The earlier seven benchmark worlds and measured results remain their original recorded experiment. The new layout has not undergone those navigation trials. Regenerate with `python3 scripts/generate_three_lane_seaport.py`; its layout manifest is next to the world.

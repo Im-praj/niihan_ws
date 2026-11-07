@@ -60,4 +60,4 @@ def stack(context):
     return nodes
 
 def generate_launch_description():
-    return LaunchDescription([DeclareLaunchArgument(n,default_value=v) for n,v in [('world','niihan_portable_site.sdf'),('headless','false'),('rviz','true'),('seed','42'),('spawn_x','-10.0'),('spawn_y','0.0'),('mode','auto'),('environment_id','portable-site'),('map_directory',os.path.expanduser('~/.local/share/niihan/maps')),('map_file',''),('rtk_alignment_file',''),('gnss_source','gazebo'),('allow_simulated_rtk','false'),('initial_x','0.0'),('initial_y','0.0'),('initial_yaw','0.0'),('output_directory','')]]+[OpaqueFunction(function=stack)])
+    return LaunchDescription([DeclareLaunchArgument(n,default_value=v) for n,v in [('world','seaport_three_lane.sdf'),('headless','false'),('rviz','true'),('seed','42'),('spawn_x','-10.0'),('spawn_y','0.0'),('mode','auto'),('environment_id','seaport-three-lane'),('map_directory',os.path.expanduser('~/.local/share/niihan/maps')),('map_file',''),('rtk_alignment_file',''),('gnss_source','gazebo'),('allow_simulated_rtk','false'),('initial_x','0.0'),('initial_y','0.0'),('initial_yaw','0.0'),('output_directory','')]]+[OpaqueFunction(function=stack)])

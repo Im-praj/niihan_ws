@@ -17,3 +17,14 @@ Use `ros2 launch niihan_description niihan_gazebo.launch.py` for configurable si
 The arbiter accepts `/niihan/cmd_vel/manual`, `/niihan/cmd_vel/recovery` and `/niihan/cmd_vel/nav`, prioritizes fresh commands and publishes `/niihan/cmd_vel`. The controller publishes limited `/niihan/gazebo_cmd_vel` for Gazebo. Neither is a certified hardware safety controller.
 
 Read the [workspace README](../../README.md) and [deployment checks](../../docs/DEPLOYMENT.md) before deployment.
+
+
+### Industry seaport GLB world
+
+The imported `worlds/niihan_industry_seaport.sdf` uses `worlds/industry_seaport_optimized.glb` for its static visuals and mesh collision. The wrapper rotates the source Y-up scene to Gazebo Z-up and offsets the source ground plane to z=0. Build and source the workspace, then launch with `world:=niihan_industry_seaport.sdf`, for example:
+
+```bash
+ros2 launch niihan_description niihan_gazebo.launch.py world:=niihan_industry_seaport.sdf
+```
+
+The existing default world remains unchanged. The imported environment has not yet been visually inspected in Gazebo or checked for robot spawn clearance and navigation performance.
